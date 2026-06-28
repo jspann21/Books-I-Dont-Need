@@ -81,10 +81,6 @@ dependencies {
     // RecyclerView
     implementation libs.androidx.recyclerview
 
-    // Navigation
-    implementation libs.androidx.navigation.fragment.ktx
-    implementation libs.androidx.navigation.ui.ktx
-
     // Testing
     testImplementation libs.junit
     testImplementation libs.androidx.room.testing
