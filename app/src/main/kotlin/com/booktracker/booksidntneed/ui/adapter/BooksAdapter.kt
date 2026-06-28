@@ -10,23 +10,25 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import android.widget.PopupMenu
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.graphics.toColorInt
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.booktracker.booksidntneed.R
 import com.booktracker.booksidntneed.databinding.ItemBookCardBinding
 import com.booktracker.booksidntneed.databinding.ItemBookCardMinimalBinding
+import com.booktracker.booksidntneed.model.Book
 import com.booktracker.booksidntneed.model.BookStore
 import com.booktracker.booksidntneed.model.BookWithStores
 import com.booktracker.booksidntneed.model.Category
 import com.bumptech.glide.Glide
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.chip.Chip
 import java.text.SimpleDateFormat
 import java.util.Locale
-import androidx.core.view.isVisible
 
 class BooksAdapter(
     private val onBookClick: (BookWithStores) -> Unit,
@@ -123,6 +125,77 @@ class BooksAdapter(
             // Fallback to default Material colors if anything goes wrong
             // This will use the existing colorSecondaryContainer styling
         }
+    }
+
+    private fun showCopyOptionsSheet(anchorView: View, book: Book) {
+        val context = anchorView.context
+        val sheetView = LayoutInflater.from(context).inflate(R.layout.bottom_sheet_copy_book_details, null)
+        val dialog = BottomSheetDialog(context)
+
+        sheetView.findViewById<TextView>(R.id.copySheetSubtitleTextView).text = book.title
+
+        setupCopyRow(dialog, sheetView, R.id.copyTitleRow, R.id.copyTitleValueTextView, "Book Title", book.title)
+        setupCopyRow(dialog, sheetView, R.id.copyAuthorRow, R.id.copyAuthorValueTextView, "Author", book.author)
+        setupOptionalCopyRow(
+            dialog,
+            sheetView,
+            R.id.copyIsbn13Row,
+            R.id.copyIsbn13ValueTextView,
+            R.id.copyIsbn13Divider,
+            "ISBN-13",
+            book.isbn13
+        )
+        setupOptionalCopyRow(
+            dialog,
+            sheetView,
+            R.id.copyIsbn10Row,
+            R.id.copyIsbn10ValueTextView,
+            R.id.copyIsbn10Divider,
+            "ISBN-10",
+            book.isbn10
+        )
+
+        dialog.setContentView(sheetView)
+        dialog.show()
+    }
+
+    private fun setupOptionalCopyRow(
+        dialog: BottomSheetDialog,
+        sheetView: View,
+        rowId: Int,
+        valueTextViewId: Int,
+        dividerId: Int,
+        label: String,
+        value: String?
+    ) {
+        if (value.isNullOrBlank()) {
+            sheetView.findViewById<View>(rowId).visibility = View.GONE
+            sheetView.findViewById<View>(dividerId).visibility = View.GONE
+        } else {
+            setupCopyRow(dialog, sheetView, rowId, valueTextViewId, label, value)
+        }
+    }
+
+    private fun setupCopyRow(
+        dialog: BottomSheetDialog,
+        sheetView: View,
+        rowId: Int,
+        valueTextViewId: Int,
+        label: String,
+        value: String
+    ) {
+        sheetView.findViewById<TextView>(valueTextViewId).text = value
+        sheetView.findViewById<View>(rowId).setOnClickListener {
+            copyToClipboard(it.context, label, value)
+            dialog.dismiss()
+        }
+    }
+
+    private fun copyToClipboard(context: Context, label: String, text: String) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText(label, text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(context, "$label copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 
     inner class BookViewHolder(private val binding: ItemBookCardBinding) : RecyclerView.ViewHolder(binding.root) {
@@ -281,56 +354,21 @@ class BooksAdapter(
             
             // Long press on title
             binding.bookTitleTextView.setOnLongClickListener {
-                showCopyOptionsPopup(it, book)
+                showCopyOptionsSheet(it, book)
                 true
             }
             
             // Long press on author
             binding.bookAuthorTextView.setOnLongClickListener {
-                showCopyOptionsPopup(it, book)
+                showCopyOptionsSheet(it, book)
                 true
             }
             
             // Long press on ISBN
             binding.bookIsbnTextView.setOnLongClickListener {
-                showCopyOptionsPopup(it, book)
+                showCopyOptionsSheet(it, book)
                 true
             }
-        }
-        
-        private fun showCopyOptionsPopup(view: View, book: com.booktracker.booksidntneed.model.Book) {
-            val popupMenu = PopupMenu(view.context, view)
-            
-            // Add copy options
-            popupMenu.menu.add(0, 1, 0, "Copy Title")
-            popupMenu.menu.add(0, 2, 0, "Copy Author")
-            
-            // Add ISBN options only if they exist
-            if (!book.isbn13.isNullOrBlank()) {
-                popupMenu.menu.add(0, 3, 0, "Copy ISBN-13")
-            }
-            if (!book.isbn10.isNullOrBlank()) {
-                popupMenu.menu.add(0, 4, 0, "Copy ISBN-10")
-            }
-            
-            popupMenu.setOnMenuItemClickListener { menuItem ->
-                when (menuItem.itemId) {
-                    1 -> copyToClipboard(view.context, "Book Title", book.title)
-                    2 -> copyToClipboard(view.context, "Author", book.author)
-                    3 -> book.isbn13?.let { copyToClipboard(view.context, "ISBN-13", it) }
-                    4 -> book.isbn10?.let { copyToClipboard(view.context, "ISBN-10", it) }
-                }
-                true
-            }
-            
-            popupMenu.show()
-        }
-        
-        private fun copyToClipboard(context: Context, label: String, text: String) {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText(label, text)
-            clipboard.setPrimaryClip(clip)
-            Toast.makeText(context, "$label copied to clipboard", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -597,13 +635,13 @@ class BooksAdapter(
             
             // Long press on title (minimal layout)
             binding.bookTitleTextView.setOnLongClickListener {
-                showCopyOptionsPopup(it, book)
+                showCopyOptionsSheet(it, book)
                 true
             }
             
             // Long press on author (minimal layout)
             binding.bookAuthorTextView.setOnLongClickListener {
-                showCopyOptionsPopup(it, book)
+                showCopyOptionsSheet(it, book)
                 true
             }
         }
@@ -613,56 +651,21 @@ class BooksAdapter(
             
             // Long press on title (expanded layout)
             binding.expandedBookTitleTextView.setOnLongClickListener {
-                showCopyOptionsPopup(it, book)
+                showCopyOptionsSheet(it, book)
                 true
             }
             
             // Long press on author (expanded layout)
             binding.expandedBookAuthorTextView.setOnLongClickListener {
-                showCopyOptionsPopup(it, book)
+                showCopyOptionsSheet(it, book)
                 true
             }
             
             // Long press on ISBN (expanded layout)
             binding.bookIsbnTextView.setOnLongClickListener {
-                showCopyOptionsPopup(it, book)
+                showCopyOptionsSheet(it, book)
                 true
             }
-        }
-        
-        private fun showCopyOptionsPopup(view: View, book: com.booktracker.booksidntneed.model.Book) {
-            val popupMenu = PopupMenu(view.context, view)
-            
-            // Add copy options
-            popupMenu.menu.add(0, 1, 0, "Copy Title")
-            popupMenu.menu.add(0, 2, 0, "Copy Author")
-            
-            // Add ISBN options only if they exist
-            if (!book.isbn13.isNullOrBlank()) {
-                popupMenu.menu.add(0, 3, 0, "Copy ISBN-13")
-            }
-            if (!book.isbn10.isNullOrBlank()) {
-                popupMenu.menu.add(0, 4, 0, "Copy ISBN-10")
-            }
-            
-            popupMenu.setOnMenuItemClickListener { menuItem ->
-                when (menuItem.itemId) {
-                    1 -> copyToClipboard(view.context, "Book Title", book.title)
-                    2 -> copyToClipboard(view.context, "Author", book.author)
-                    3 -> book.isbn13?.let { copyToClipboard(view.context, "ISBN-13", it) }
-                    4 -> book.isbn10?.let { copyToClipboard(view.context, "ISBN-10", it) }
-                }
-                true
-            }
-            
-            popupMenu.show()
-        }
-        
-        private fun copyToClipboard(context: Context, label: String, text: String) {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText(label, text)
-            clipboard.setPrimaryClip(clip)
-            Toast.makeText(context, "$label copied to clipboard", Toast.LENGTH_SHORT).show()
         }
     }
 
