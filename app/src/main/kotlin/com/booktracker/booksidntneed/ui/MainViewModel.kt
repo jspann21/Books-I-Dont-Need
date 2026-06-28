@@ -167,6 +167,9 @@ class MainViewModel(private val repository: BookRepository, private val app: App
     
     private val _selectedCategory = MutableLiveData<String?>(ALL_CATEGORIES_SENTINEL)
     val selectedCategory: LiveData<String?> = _selectedCategory
+
+    private val _searchQuery = MutableLiveData("")
+    val searchQuery: LiveData<String> = _searchQuery
     
     private val _isMinimalCardMode = MutableLiveData(false)
     val isMinimalCardMode: LiveData<Boolean> = _isMinimalCardMode
@@ -305,22 +308,63 @@ class MainViewModel(private val repository: BookRepository, private val app: App
     
     // Data
     val allCategories: LiveData<List<Category>> = repository.getAllCategories()
+
+    private fun List<BookWithStores>.filterBySearchQuery(query: String): List<BookWithStores> {
+        if (query.isBlank()) return this
+
+        val normalizedQuery = query.lowercase(Locale.ROOT)
+        val numericQuery = query.filter { it.isDigit() || it.equals('x', ignoreCase = true) }
+            .lowercase(Locale.ROOT)
+
+        return filter { bookWithStores ->
+            val book = bookWithStores.book
+            val searchableText = buildString {
+                append(book.title)
+                append(' ')
+                append(book.author)
+                append(' ')
+                append(book.isbn10.orEmpty())
+                append(' ')
+                append(book.isbn13.orEmpty())
+                append(' ')
+                append(bookWithStores.stores.joinToString(" ") { it.storeName })
+            }.lowercase(Locale.ROOT)
+
+            val isbnText = "${book.isbn10.orEmpty()} ${book.isbn13.orEmpty()}"
+                .filter { it.isDigit() || it.equals('x', ignoreCase = true) }
+                .lowercase(Locale.ROOT)
+
+            searchableText.contains(normalizedQuery) ||
+                (numericQuery.isNotBlank() && isbnText.contains(numericQuery))
+        }
+    }
     
     // --- REFACTOR: Use switchMap for filteredBooks ---
     val filteredBooks: LiveData<List<BookWithStores>> = androidx.lifecycle.MediatorLiveData<List<BookWithStores>>().apply {
         val sortOrderSource = _currentSortOrder
         val categorySource = _selectedCategory
+        val searchQuerySource = _searchQuery
         var currentSource: LiveData<List<BookWithStores>>? = null
+        var latestBooks: List<BookWithStores> = emptyList()
+
+        fun applySearch() {
+            value = latestBooks.filterBySearchQuery(searchQuerySource.value.orEmpty())
+        }
+
         fun updateSource() {
             val sortOrder = sortOrderSource.value ?: SortOrder.DATE_ADDED_DESC
             val category = categorySource.value
             val newSource = repository.getFilteredAndSortedBooks(sortOrder, category)
             currentSource?.let { removeSource(it) }
             currentSource = newSource
-            addSource(newSource) { value = it ?: emptyList() }
+            addSource(newSource) { books ->
+                latestBooks = books ?: emptyList()
+                applySearch()
+            }
         }
         addSource(sortOrderSource) { updateSource() }
         addSource(categorySource) { updateSource() }
+        addSource(searchQuerySource) { applySearch() }
         // Initial source
         updateSource()
     }
@@ -966,6 +1010,13 @@ class MainViewModel(private val repository: BookRepository, private val app: App
     
     fun setSelectedCategory(category: String?) {
         _selectedCategory.value = category
+    }
+
+    fun setSearchQuery(query: String) {
+        val normalizedQuery = query.trim()
+        if (_searchQuery.value != normalizedQuery) {
+            _searchQuery.value = normalizedQuery
+        }
     }
     
     fun toggleCardViewMode() {

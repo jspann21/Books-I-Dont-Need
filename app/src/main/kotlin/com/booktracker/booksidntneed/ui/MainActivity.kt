@@ -13,8 +13,12 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Vibrator
 import android.provider.OpenableColumns
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +26,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.view.isVisible
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.fragment.app.commit
 import androidx.lifecycle.Lifecycle
@@ -270,11 +275,80 @@ class MainActivity : AppCompatActivity(),
     // Toolbar removed for Amazon-style layout
     
     private fun setupClickListeners() {
-        // Search icon click - could show search dialog in future
-        binding.searchIcon.setOnClickListener {
-            Toast.makeText(this, "Search feature - coming soon!", Toast.LENGTH_SHORT).show()
+        setupSearchUi()
+    }
+
+    private fun setupSearchUi() {
+        val initialQuery = viewModel.searchQuery.value.orEmpty()
+        if (initialQuery.isNotBlank()) {
+            binding.searchEditText.setText(initialQuery)
+            setSearchModeVisible(true, requestFocus = false)
         }
-        
+
+        binding.searchIcon.setOnClickListener {
+            provideHapticFeedback(HapticType.CONFIRMATION)
+            it.animateClick()
+
+            if (binding.searchEditText.isVisible) {
+                if (binding.searchEditText.text.isNullOrBlank()) {
+                    setSearchModeVisible(false)
+                } else {
+                    binding.searchEditText.text = null
+                }
+            } else {
+                setSearchModeVisible(true)
+            }
+        }
+
+        binding.searchEditText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                viewModel.setSearchQuery(s?.toString().orEmpty())
+            }
+
+            override fun afterTextChanged(s: Editable?) = Unit
+        })
+
+        binding.searchEditText.setOnEditorActionListener { view, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE) {
+                hideKeyboard(view)
+                view.clearFocus()
+                if (binding.searchEditText.text.isNullOrBlank()) {
+                    setSearchModeVisible(false)
+                }
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    private fun setSearchModeVisible(isVisible: Boolean, requestFocus: Boolean = true) {
+        binding.searchEditText.visibility = if (isVisible) View.VISIBLE else View.GONE
+        binding.sortButton.visibility = if (isVisible) View.GONE else View.VISIBLE
+        binding.filterButton.visibility = if (isVisible) View.GONE else View.VISIBLE
+        binding.cardViewToggleButton.visibility = if (isVisible) View.GONE else View.VISIBLE
+        binding.settingsButton.visibility = if (isVisible) View.GONE else View.VISIBLE
+
+        if (isVisible && requestFocus) {
+            binding.searchEditText.requestFocus()
+            binding.searchEditText.post { showKeyboard(binding.searchEditText) }
+        } else if (!isVisible) {
+            binding.searchEditText.text = null
+            binding.searchEditText.clearFocus()
+            hideKeyboard(binding.searchEditText)
+        }
+    }
+
+    private fun showKeyboard(view: View) {
+        val inputMethodManager = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        inputMethodManager.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun hideKeyboard(view: View) {
+        val inputMethodManager = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        inputMethodManager.hideSoftInputFromWindow(view.windowToken, 0)
     }
     
     private fun setupObservers() {

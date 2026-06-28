@@ -7,6 +7,7 @@
     <string name="sort_books">Sort</string>
     <string name="filter_category">Filter</string>
     <string name="filter_category_active">Filter (Active)</string>
+    <string name="search_books_hint">Search books</string>
 
     <!-- Categories -->
     <string name="all_categories">All</string>
