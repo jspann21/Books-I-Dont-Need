@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/gradient_background"
+    tools:context=".ui.MainActivity">
+
+    <!-- Main Content - Clean minimal layout -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:fitsSystemWindows="true">
+
+        <!-- Material 3 Expressive URL Entry Bar -->
+        <com.booktracker.booksidntneed.ui.InputBarView
+            android:id="@+id/inputBarView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <!-- Clean Filter Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:paddingTop="0dp"
+            android:paddingBottom="12dp"
+            android:gravity="start|center_vertical">
+
+            <!-- Search Icon -->
+            <ImageView
+                android:id="@+id/searchIcon"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_marginEnd="16dp"
+                android:src="@drawable/ic_search"
+                android:contentDescription="Search"
+                android:padding="4dp"
+                app:tint="?attr/colorOnSurface"
+                android:alpha="0.7" />
+
+            <!-- Hidden search field for functionality -->
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/searchEditText"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:visibility="gone" />
+
+            <!-- Clean Filter Buttons -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/sortButton"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginEnd="8dp"
+                android:text="@string/sort_books"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:minWidth="0dp"
+                android:paddingHorizontal="16dp"
+                android:background="@drawable/filter_pill_background"
+                android:elevation="2dp"
+                app:icon="@drawable/ic_sort"
+                app:iconTint="@color/white"
+                app:iconSize="16dp"
+                app:iconGravity="textStart"
+                app:iconPadding="4dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/filterButton"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginEnd="8dp"
+                android:text="@string/filter_category"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:minWidth="0dp"
+                android:paddingHorizontal="16dp"
+                android:background="@drawable/filter_pill_background"
+                android:elevation="2dp"
+                app:icon="@drawable/ic_filter"
+                app:iconTint="@color/white"
+                app:iconSize="16dp"
+                app:iconGravity="textStart"
+                app:iconPadding="4dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cardViewToggleButton"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:text=""
+                android:minWidth="0dp"
+                android:paddingHorizontal="0dp"
+                android:background="@drawable/filter_pill_background"
+                android:elevation="2dp"
+                app:icon="@drawable/ic_view_list"
+                app:iconTint="@color/white"
+                app:iconSize="16dp"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/settingsButton"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="0dp"
+                android:background="@drawable/filter_pill_background"
+                android:elevation="2dp"
+                app:icon="@drawable/ic_settings"
+                app:iconTint="@color/white"
+                app:iconSize="16dp"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp" />
+
+        </LinearLayout>
+
+        <!-- Books Content Area -->
+        <FrameLayout
+            android:id="@+id/booksContentFragmentContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout> 

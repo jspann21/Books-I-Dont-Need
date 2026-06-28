@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    
+    <!-- Transparent fill so we only see the stroke -->
+    <solid android:color="@android:color/transparent" />
+    
+    <!-- Primary color stroke that will be visible around the color indicator -->
+    <stroke
+        android:width="3dp"
+        android:color="?attr/colorPrimary" />
+        
+</shape> 

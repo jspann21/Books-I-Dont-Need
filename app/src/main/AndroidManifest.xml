@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Material 3 Expressive haptic feedback -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Notifications on Android 13+ require runtime permission -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Foreground Service permissions for Android 14+ -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!--
+      Justification for dataSync: The app performs background price updates for books by
+      scraping retailer websites. This process can be long-running depending on the number
+      of books and requires a foreground service to ensure it's not killed by the system
+      while providing a visible progress notification to the user.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application
+        android:name=".BookTrackerApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.BooksIDontNeed"
+        tools:targetApi="31">
+        
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
+        <!-- Declare Foreground Service Type used by WorkManager's SystemForegroundService (Android 14+) -->
+        <meta-data
+            android:name="androidx.work.impl.foregroundServiceType"
+            android:value="dataSync" />
+        
+        <!-- WorkManager initializes automatically; no explicit receiver needed -->
+
+        <receiver
+            android:name=".work.UpdateBroadcastReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.booktracker.booksidntneed.UPDATE_SUMMARY_READY" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".work.BootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.BooksIDontNeed">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            
+            <!-- Handle shared URLs -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            
+            <!-- Handle web URLs -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Supported retailer domains -->
+                <data android:scheme="https" android:host="amazon.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.amazon.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="amazon.ca" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.amazon.ca" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="amazon.co.uk" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.amazon.co.uk" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="amazon.de" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.amazon.de" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="amazon.fr" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.amazon.fr" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="amazon.it" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.amazon.it" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="amazon.es" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.amazon.es" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="amazon.co.jp" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.amazon.co.jp" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="a.co" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="barnesandnoble.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.barnesandnoble.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="bn.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.bn.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="bookoutlet.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.bookoutlet.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="betterworldbooks.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.betterworldbooks.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="worldofbooks.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.worldofbooks.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="abebooks.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.abebooks.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="thriftbooks.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.thriftbooks.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="books.google.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="play.google.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="christianbook.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.christianbook.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="crossway.org" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.crossway.org" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="biblestore.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.biblestore.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="ebay.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.ebay.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="ebay.co.uk" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.ebay.co.uk" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="ebay.ca" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.ebay.ca" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="ebay.de" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.ebay.de" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="ebay.fr" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.ebay.fr" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="ebay.it" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.ebay.it" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="ebay.es" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.ebay.es" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="valore.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.valore.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="hpb.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.hpb.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="amazon.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.amazon.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="amazon.ca" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.amazon.ca" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="amazon.co.uk" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.amazon.co.uk" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="amazon.de" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.amazon.de" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="amazon.fr" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.amazon.fr" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="amazon.it" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.amazon.it" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="amazon.es" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.amazon.es" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="amazon.co.jp" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.amazon.co.jp" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="a.co" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="barnesandnoble.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.barnesandnoble.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="bn.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.bn.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="bookoutlet.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.bookoutlet.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="betterworldbooks.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.betterworldbooks.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="worldofbooks.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.worldofbooks.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="abebooks.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.abebooks.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="thriftbooks.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.thriftbooks.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="books.google.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="play.google.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="christianbook.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.christianbook.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="crossway.org" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.crossway.org" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="biblestore.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.biblestore.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="ebay.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.ebay.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="ebay.co.uk" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.ebay.co.uk" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="ebay.ca" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.ebay.ca" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="ebay.de" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.ebay.de" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="ebay.fr" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.ebay.fr" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="ebay.it" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.ebay.it" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="ebay.es" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.ebay.es" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="valore.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.valore.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="hpb.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.hpb.com" android:pathPrefix="/" />
+            </intent-filter>
+        </activity>
+        
+        <!-- FileProvider for sharing CSV files -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+        
+    </application>
+
+</manifest> 

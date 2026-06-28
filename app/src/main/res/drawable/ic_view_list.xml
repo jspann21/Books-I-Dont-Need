@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="28"
+    android:viewportHeight="28"
+    android:tint="?attr/colorOnSurface">
+    <!-- Larger dots (as circles using path) -->
+    <path android:fillColor="@android:color/white" android:pathData="M7,7a2,2 0 1,0 0,4a2,2 0 1,0 0,-4z"/>
+    <path android:fillColor="@android:color/white" android:pathData="M7,14a2,2 0 1,0 0,4a2,2 0 1,0 0,-4z"/>
+    <path android:fillColor="@android:color/white" android:pathData="M7,21a2,2 0 1,0 0,4a2,2 0 1,0 0,-4z"/>
+    <!-- Longer, thicker lines (aligned with dots) -->
+    <path android:strokeColor="@android:color/white" android:strokeWidth="3" android:fillColor="@android:color/transparent" android:pathData="M13,9h13"/>
+    <path android:strokeColor="@android:color/white" android:strokeWidth="3" android:fillColor="@android:color/transparent" android:pathData="M13,16h13"/>
+    <path android:strokeColor="@android:color/white" android:strokeWidth="3" android:fillColor="@android:color/transparent" android:pathData="M13,23h13"/>
+</vector> 

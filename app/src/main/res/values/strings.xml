@@ -1,0 +1,128 @@
+<resources>
+    <string name="app_name">Books I Don\'t Need</string>
+    
+    <!-- Main Activity -->
+    <string name="add_book_url_hint">Paste or enter book URL here</string>
+    <string name="add_book_button">Add Book</string>
+    <string name="sort_books">Sort</string>
+    <string name="filter_category">Filter</string>
+    <string name="filter_category_active">Filter (Active)</string>
+
+    <!-- Categories -->
+    <string name="all_categories">All</string>
+    <string name="uncategorized">Uncategorized</string>
+
+    <!-- Book Card -->
+    <string name="book_date_added_label">Added: %s</string>
+    <string name="no_price_available">Price not available</string>
+    <string name="view_stores">View All Stores</string>
+
+    <!-- Sort Options -->
+
+    <!-- Messages -->
+    <string name="book_added_success">Book added successfully!</string>
+
+    <!-- Dialogs -->
+    <string name="confirm_delete_book_title">Delete Book</string>
+    <string name="confirm_delete_book_message">Are you sure you want to delete this book?</string>
+    <string name="confirm_delete_category_title">Delete Category</string>
+    <string name="confirm_delete_category_message">Are you sure you want to delete this category? Books in this category will be moved to \'Uncategorized\'.</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Menu Items -->
+
+    <!-- Empty States -->
+    <string name="empty_state_title">No Books Yet</string>
+    <string name="empty_state_message">Start building your collection by sharing book links from your browser or pasting URLs directly.</string>
+
+    <!-- Accessibility -->
+    <string name="book_cover_image_description">Book cover image</string>
+    <string name="book_menu_description">Book options menu</string>
+    
+    <!-- Settings -->
+    <string name="export_success">Data exported successfully</string>
+    <string name="import_success">Data imported successfully</string>
+    <string name="save_file">Save CSV file</string>
+    <string name="books_imported">%d books imported</string>
+    <string name="stores_imported">%d stores imported</string>
+    <string name="categories_imported">%d categories imported</string>
+    <string name="duplicates_merged">%d duplicates merged</string>
+    
+    <!-- About -->
+
+    <!-- Supported Stores -->
+
+    <!-- New strings from MainActivity hardcoded values -->
+    <string name="manual_entry">Manual Entry</string>
+    <string name="delete_store_title">Delete Store</string>
+    <string name="delete_store_message">Remove \"%1$s\" from this book?</string>
+    <string name="delete">Delete</string>
+    <string name="no_valid_url_found">No valid URL found in shared text</string>
+    <string name="clear_data_not_implemented">Clear data functionality not implemented yet</string>
+    <string name="no_books_to_export">No books to export</string>
+    <string name="books_export_subject">Books Export</string>
+    <string name="filter_by_category_title">Filter by Category</string>
+    <string name="select_category_to_filter">Select a category to filter books</string>
+
+    <!-- New strings from MainViewModel hardcoded values -->
+    <string name="unexpected_result_adding_existing_book">Unexpected result when adding to existing book</string>
+    <string name="unexpected_result_adding_new_book">Unexpected result when adding new book</string>
+    <string name="book_deleted_successfully">Book deleted successfully</string>
+    <string name="category_updated_successfully">Category updated successfully</string>
+    <string name="no_stores_found_with_valid_urls">No stores found with valid URLs to update</string>
+    <string name="category_not_found_or_cannot_edit">Category not found or cannot be edited</string>
+    <string name="category_name_cannot_be_empty">Category name cannot be empty</string>
+    <string name="unknown_author">Unknown Author</string>
+    <string name="unexpected_result_adding_selected_seller">Unexpected result when adding selected seller</string>
+    
+    <!-- Error messages -->
+    <string name="failed_to_delete_book">Failed to delete book: %s</string>
+    <string name="failed_to_update_category">Failed to update category: %s</string>
+    <string name="failed_to_add_category">Failed to add category: %s</string>
+    <string name="failed_to_delete_category">Failed to delete category: %s</string>
+    <string name="failed_to_update_book">Failed to update book: %s</string>
+    <string name="failed_to_remove_store">Failed to remove store: %s</string>
+    <string name="failed_to_add_book_from_selected_seller">Failed to add book from selected seller: %s</string>
+    <string name="failed_to_add_to_existing_book">Failed to add to existing book: %s</string>
+    <string name="failed_to_add_new_book">Failed to add new book: %s</string>
+    <string name="unexpected_error">Unexpected error: %s</string>
+    <string name="failed_to_update_prices">Failed to update prices: %s</string>
+    
+    <!-- Success messages -->
+    <string name="store_removed_successfully">Store \"%s\" removed successfully</string>
+    <string name="category_created_successfully">Category \"%s\" created successfully</string>
+    <string name="category_deleted_successfully">Category \"%s\" deleted successfully</string>
+    <string name="category_renamed_successfully">Category renamed to \"%s\" successfully</string>
+    
+    <!-- Validation messages -->
+    <string name="category_name_too_short">Category name must be at least 2 characters</string>
+    <string name="category_name_too_long">Category name must be less than 50 characters</string>
+    <string name="book_added_to_existing_successfully">Added %1$s to existing book!</string>
+    <string name="store_updated_successfully">Updated %1$s pricing!</string>
+    <string name="store_already_associated_with_book">This store (%1$s) is already associated with this book!</string>
+    <string name="book_updated_successfully">Book updated with %1$s store information!</string>
+    <string name="book_already_in_library">This book from %1$s is already in your library!</string>
+    <string name="unexpected_duplicate_detection_error">Unexpected duplicate detection error. Please try manual entry.</string>
+    <string name="unexpected_multiple_seller_detection_error">Unexpected multiple seller detection error. Please try again.</string>
+    <string name="failed_to_add_book_manually">Failed to add book manually: %1$s</string>
+    <string name="failed_to_add_book_from_url">Failed to add book from URL: %1$s</string>
+    
+    <!-- Auto update & notifications -->
+    <string name="auto_update_title">Automatic price updates</string>
+    <string name="auto_update_description">Run a daily background check to refresh prices for all books.</string>
+    <string name="update_time">Update time</string>
+    <string name="choose_time">Choose time</string>
+    <string name="summary_price_drops">%1$d price drop(s)</string>
+    <string name="summary_no_changes">No price changes detected</string>
+    <string name="update_complete_title">Book prices updated</string>
+    <string name="update_increases_suffix"> and %1$d increase(s)</string>
+    <string name="recent_price_changes_title">Recent price changes</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="close">Close</string>
+    <string name="settings_auto_applied_hint">Changes are applied automatically</string>
+    <string name="update_all_now">Update all prices now</string>
+    <string name="update_all_now_desc">Runs a full refresh of all book prices. You will receive a notification when it finishes. Please avoid running too frequently.</string>
+    <string name="confirm_update_all_title">Run full price update?</string>
+    <string name="confirm_update_all_message">This may take a while. You will receive a notification when it completes. Please avoid running it too often.</string>
+    <string name="run_now">Run now</string>
+</resources> 

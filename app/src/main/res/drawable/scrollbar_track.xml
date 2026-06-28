@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    
+    <!-- Subtle track background -->
+    <solid android:color="#10FFFFFF" />
+    
+    <!-- Rounded corners matching the thumb -->
+    <corners android:radius="6dp" />
+    
+    <!-- Track size -->
+    <size 
+        android:width="8dp"
+        android:height="100dp" />
+    
+</shape> 

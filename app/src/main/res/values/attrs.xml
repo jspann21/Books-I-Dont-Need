@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Individual color attributes for theme usage -->
+    <attr name="priceTextColor" format="color" />
+    <attr name="linkTextColor" format="color" />
+    <attr name="dateTextColor" format="color" />
+    <attr name="isbnTextColor" format="color" />
+</resources> 

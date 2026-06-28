@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material Design 3 Expressive - Android 16 2025 Color Palette -->
+    <!-- Primary - Modern Ocean Blue (trending alternative to purple) -->
+    <color name="md_theme_light_primary">#0EA5E9</color>
+    <color name="md_theme_light_onPrimary">#FFFFFF</color>
+    <color name="md_theme_light_primaryContainer">#E0F2FE</color>
+    <color name="md_theme_light_onPrimaryContainer">#0C4A6E</color>
+    
+    <!-- Secondary - Vibrant Emerald (replacing purple with trending green) -->
+    <color name="md_theme_light_secondary">#10B981</color>
+    <color name="md_theme_light_onSecondary">#FFFFFF</color>
+    <color name="md_theme_light_secondaryContainer">#ECFDF5</color>
+    <color name="md_theme_light_onSecondaryContainer">#064E3B</color>
+    
+    <!-- Tertiary - Cherry Red (2025 Pinterest trending color) -->
+    <color name="md_theme_light_tertiary">#DC2626</color>
+    <color name="md_theme_light_onTertiary">#FFFFFF</color>
+    <color name="md_theme_light_tertiaryContainer">#FEE2E2</color>
+    <color name="md_theme_light_onTertiaryContainer">#7F1D1D</color>
+    
+    <!-- Error -->
+    <color name="md_theme_light_error">#EF4444</color>
+    <color name="md_theme_light_onError">#FFFFFF</color>
+    <color name="md_theme_light_errorContainer">#FEE2E2</color>
+    <color name="md_theme_light_onErrorContainer">#7F1D1D</color>
+    
+    <!-- Background & Surface - Ultra clean whites and soft grays -->
+    <color name="md_theme_light_background">#FEFEFE</color>
+    <color name="md_theme_light_onBackground">#0A0A0A</color>
+    <color name="md_theme_light_surface">#FFFFFF</color>
+    <color name="md_theme_light_onSurface">#0A0A0A</color>
+    <color name="md_theme_light_surfaceVariant">#F8FAFC</color>
+    <color name="md_theme_light_onSurfaceVariant">#64748B</color>
+    
+    <!-- Surface Containers with enhanced contrast -->
+    <color name="md_theme_light_surfaceContainer">#FAFBFC</color>
+    <color name="md_theme_light_surfaceContainerHigh">#F1F5F9</color>
+    <color name="md_theme_light_surfaceContainerHighest">#E2E8F0</color>
+    
+    <!-- Outline with better definition -->
+    <color name="md_theme_light_outline">#D1D5DB</color>
+    <color name="md_theme_light_outlineVariant">#E5E7EB</color>
+    
+    <!-- Dark Theme Colors - Modern night mode -->
+    <color name="md_theme_dark_primary">#38BDF8</color>
+    <color name="md_theme_dark_onPrimary">#0C4A6E</color>
+    <color name="md_theme_dark_primaryContainer">#0369A1</color>
+    <color name="md_theme_dark_onPrimaryContainer">#E0F2FE</color>
+    
+    <color name="md_theme_dark_secondary">#34D399</color>
+    <color name="md_theme_dark_onSecondary">#064E3B</color>
+    <color name="md_theme_dark_secondaryContainer">#059669</color>
+    <color name="md_theme_dark_onSecondaryContainer">#ECFDF5</color>
+    
+    <color name="md_theme_dark_tertiary">#F87171</color>
+    <color name="md_theme_dark_onTertiary">#7F1D1D</color>
+    <color name="md_theme_dark_tertiaryContainer">#B91C1C</color>
+    <color name="md_theme_dark_onTertiaryContainer">#FEE2E2</color>
+    
+    <color name="md_theme_dark_error">#F87171</color>
+    <color name="md_theme_dark_onError">#7F1D1D</color>
+    <color name="md_theme_dark_errorContainer">#DC2626</color>
+    <color name="md_theme_dark_onErrorContainer">#FEE2E2</color>
+    
+    <color name="md_theme_dark_background">#0F0F0F</color>
+    <color name="md_theme_dark_onBackground">#F8FAFC</color>
+    <color name="md_theme_dark_surface">#1A1A1A</color>
+    <color name="md_theme_dark_onSurface">#F8FAFC</color>
+    <color name="md_theme_dark_surfaceVariant">#2D3748</color>
+    <color name="md_theme_dark_onSurfaceVariant">#CBD5E1</color>
+    
+    <color name="md_theme_dark_surfaceContainer">#2D3748</color>
+    <color name="md_theme_dark_surfaceContainerHigh">#4A5568</color>
+    <color name="md_theme_dark_surfaceContainerHighest">#718096</color>
+    
+    <color name="md_theme_dark_outline">#718096</color>
+    <color name="md_theme_dark_outlineVariant">#4A5568</color>
+    
+    <!-- App-Specific Colors with trending accents -->
+    <color name="price_color">#10B981</color>
+    <color name="price_color_dark">#34D399</color>
+    
+    <color name="link_color">#0EA5E9</color>
+    <color name="link_color_dark">#38BDF8</color>
+    
+    <color name="date_text_color">#64748B</color>
+    <color name="date_text_color_dark">#94A3B8</color>
+    
+    <color name="isbn_color">#64748B</color>
+    <color name="isbn_color_dark">#94A3B8</color>
+    
+    <!-- Modern Category Colors - 2025 Trending Palette -->
+    <!-- Inspired by Pinterest 2025 color trends -->
+    <color name="category_uncategorized">#F1F5F9</color>      <!-- Alpine Oat inspired -->
+    <!-- Dill Green container -->
+    <!-- Cherry Red container -->
+    <!-- Ocean Blue container -->
+    <!-- Butter Yellow inspired -->
+    <!-- Soft lavender -->
+    <!-- Soft pink -->
+    <!-- Warm peach -->
+    <!-- Fresh mint -->
+    <!-- Soft coral -->
+    
+    <!-- Category Text Colors with enhanced contrast -->
+    <!-- Darker green -->
+    <!-- Darker red -->
+    <!-- Darker blue -->
+    <!-- Rich amber -->
+    <!-- Rich brown -->
+    <!-- Rich pink -->
+    <!-- Rich orange -->
+    <!-- Deep green -->
+    <!-- Deep rose -->
+    
+    <!-- Accent Colors for Interactive Elements -->
+    <!-- Butter Yellow -->
+    <!-- Soft coral -->
+    <!-- Soft mint -->
+    <!-- Soft sky -->
+    
+    <!-- Legacy colors removed - no more purple references -->
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- Button State Colors for Material Design -->
+    <color name="colorPrimary">?attr/colorPrimary</color>
+    <color name="colorLoading">#94A3B8</color>  <!-- Gray for loading state -->
+    <color name="colorSuccess">#10B981</color>  <!-- Green for success state -->
+    <color name="filter_pill_blue">#0EA5E9</color>
+</resources> 

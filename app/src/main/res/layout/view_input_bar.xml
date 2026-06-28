@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <!-- Material 3 Expressive URL Entry Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:background="@drawable/pill_background"
+                android:elevation="4dp"
+                android:translationZ="2dp">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/urlInputLayout"
+                    style="@style/Widget.Material3.TextInputLayout.FilledBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    app:hintEnabled="false"
+                    app:boxBackgroundColor="@android:color/transparent"
+                    app:boxCornerRadiusTopStart="30dp"
+                    app:boxCornerRadiusTopEnd="30dp"
+                    app:boxCornerRadiusBottomStart="30dp"
+                    app:boxCornerRadiusBottomEnd="30dp"
+                    app:boxStrokeWidth="0dp"
+                    app:boxStrokeWidthFocused="2dp"
+                    app:boxStrokeColor="?attr/colorPrimary"
+                    app:startIconDrawable="@drawable/ic_link"
+                    app:startIconTint="?attr/colorOnSurfaceVariant"
+                    app:endIconMode="clear_text"
+                    app:endIconTint="?attr/colorOnSurfaceVariant">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/urlEditText"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:hint="@string/add_book_url_hint"
+                        android:inputType="textUri"
+                        android:maxLines="1"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textColorHint="?attr/colorOnSurfaceVariant"
+                        android:textSize="14sp"
+                        android:paddingStart="48dp"
+                        android:paddingEnd="48dp"
+                        android:paddingTop="12dp"
+                        android:paddingBottom="12dp"
+                        android:background="@android:color/transparent" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+            </FrameLayout>
+
+            <!-- Material 3 Expressive Enhanced FAB -->
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/addBookButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_gravity="center_vertical"
+                android:contentDescription="@string/add_book_button"
+                app:fabCustomSize="48dp"
+                app:maxImageSize="24dp"
+                app:srcCompat="@drawable/ic_add"
+                app:tint="?attr/colorOnPrimary"
+                app:backgroundTint="@color/filter_pill_blue"
+                app:elevation="6dp"
+                app:pressedTranslationZ="8dp"
+                app:borderWidth="0dp"
+                app:useCompatPadding="false"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full" />
+
+        </LinearLayout>
+
+        <!-- Enhanced Status Text with Material 3 Expressive Typography -->
+        <TextView
+            android:id="@+id/addBookStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:text="Analyzing URL..."
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:alpha="0.9"
+            android:visibility="gone"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.02"
+            android:elevation="2dp" />
+
+    </LinearLayout>
+
+</LinearLayout> 

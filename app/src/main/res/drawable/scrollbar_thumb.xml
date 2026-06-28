@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    
+    <!-- Material 3 Expressive scrollbar thumb color -->
+    <solid android:color="?attr/colorOnSurface" />
+    
+    <!-- Fully rounded corners for modern look -->
+    <corners android:radius="6dp" />
+    
+    <!-- Minimum size -->
+    <size 
+        android:width="6dp"
+        android:height="20dp" />
+    
+</shape> 

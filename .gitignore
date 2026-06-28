@@ -1,0 +1,61 @@
+# Gradle
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+.navigation/
+
+# Local machine config
+local.properties
+
+# Kotlin
+.kotlin/
+
+# Android build artifacts
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+output.json
+lint-results*.html
+lint-results*.xml
+
+# Signing / secrets
+*.jks
+*.keystore
+keystore.properties
+release.properties
+*.p12
+*.pem
+*.key
+*.env
+.env
+.env.*
+
+# Logs
+*.log
+logcat.txt
+hs_err_pid*
+replay_pid*
+*.hprof
+
+# Editor / OS files
+.vscode/*
+.cursor/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Project scratch files
+temps/
