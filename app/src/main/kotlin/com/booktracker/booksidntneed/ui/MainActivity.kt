@@ -26,6 +26,8 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.fragment.app.commit
@@ -342,8 +344,7 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun showKeyboard(view: View) {
-        val inputMethodManager = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        inputMethodManager.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
+        WindowCompat.getInsetsController(window, view).show(WindowInsetsCompat.Type.ime())
     }
 
     private fun hideKeyboard(view: View) {
