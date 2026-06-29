@@ -1,5 +1,6 @@
 package com.booktracker.booksidntneed.ui.dialog
 
+import android.app.Dialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -59,6 +60,12 @@ class CategorySelectionDialogFragment : DialogFragment() {
         setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
     }
 
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
+        val dialog = super.onCreateDialog(savedInstanceState)
+        dialog.window?.setWindowAnimations(R.style.Animation_BooksIDontNeed_Dialog)
+        return dialog
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -80,14 +87,17 @@ class CategorySelectionDialogFragment : DialogFragment() {
         view.findViewById<TextView>(R.id.dialogTitle).text = title
         view.findViewById<TextView>(R.id.bookTitle).text = bookTitle
         
+        // Initialize categories synchronously to prevent layout resizing during window enter animation
+        val viewModel = ViewModelProvider(requireActivity())[MainViewModel::class.java]
+        categories = viewModel.allCategories.value?.ifEmpty { Category.getDefaultCategories() } ?: Category.getDefaultCategories()
+
         setupCategoryList(view, currentCategoryName, showAllOption, selectedCategory)
         setupCreateCategorySection(view)
         setupCancelButton(view)
 
         // Observe categories from the activity's ViewModel
-        val viewModel = ViewModelProvider(requireActivity())[MainViewModel::class.java]
-        viewModel.allCategories.observe(viewLifecycleOwner) { categories ->
-            updateCategories(categories)
+        viewModel.allCategories.observe(viewLifecycleOwner) { newCategories ->
+            updateCategories(newCategories)
         }
     }
     

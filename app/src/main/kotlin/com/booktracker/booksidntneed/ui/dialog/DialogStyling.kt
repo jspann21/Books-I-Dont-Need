@@ -12,5 +12,6 @@ object DialogStyling {
         val maxWidth = (maxWidthDp * metrics.density).toInt()
 
         window.setLayout(min(targetWidth, maxWidth), ViewGroup.LayoutParams.WRAP_CONTENT)
+        window.setWindowAnimations(com.booktracker.booksidntneed.R.style.Animation_BooksIDontNeed_Dialog)
     }
 }
