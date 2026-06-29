@@ -59,7 +59,15 @@ class WebScrapingService {
             "bn.com",
             "bookoutlet.com",
             "betterworldbooks.com",
-            "worldofbooks.com"
+            "worldofbooks.com",
+            "ebay.com",
+            "ebay.co.uk",
+            "ebay.ca",
+            "ebay.de",
+            "ebay.fr",
+            "ebay.it",
+            "ebay.es",
+            "ebay.com.au"
         )
         
         private const val MAX_RETRIES = 3
@@ -265,10 +273,12 @@ class WebScrapingService {
         val isBookOutlet = isBookOutletUrl(url)
         val isBetterWorldBooks = isBetterWorldBooksUrl(url)
         val isAmazon = isAmazonUrl(url)
+        val isEbay = isEbayUrl(url)
         val maxRetries = when {
             isBarnesNoble -> BN_MAX_RETRIES
             isBetterWorldBooks -> 2 // Allow 2 attempts for BWB
             isAmazon -> 2 // Allow 2 attempts for Amazon
+            isEbay -> 2 // Allow a browser-referrer retry for eBay 403 responses
             else -> MAX_RETRIES
         }
         val baseDelay = when {
@@ -276,6 +286,7 @@ class WebScrapingService {
             isBookOutlet -> 2000L // Reduced base delay for Book Outlet
             isBetterWorldBooks -> 3000L // Longer delay for BWB
             isAmazon -> 1000L // Short delay for Amazon
+            isEbay -> 1000L // Short delay for eBay
             else -> BASE_RETRY_DELAY_MS
         }
         val maxRandomDelay = when {
@@ -283,6 +294,7 @@ class WebScrapingService {
             isBookOutlet -> 1000L // Reduced random delay for Book Outlet
             isBetterWorldBooks -> 2000L // Higher random delay for BWB
             isAmazon -> 500L // Short random delay for Amazon
+            isEbay -> 500L // Short random delay for eBay
             else -> MAX_RANDOM_DELAY_MS
         }
         
@@ -346,6 +358,16 @@ class WebScrapingService {
                 Log.w("BookTracker", "WebScraping: Failed to establish Amazon session, continuing anyway: ${e.message}")
             }
         }
+
+        if (isEbay) {
+            try {
+                Log.d("BookTracker", "WebScraping: Establishing eBay session first...")
+                progressCallback?.onTaskProgress("Establishing Session", 95)
+                establishEbaySession()
+            } catch (e: Exception) {
+                Log.w("BookTracker", "WebScraping: Failed to establish eBay session, continuing anyway: ${e.message}")
+            }
+        }
         
         // Clean up URLs that might have formatting issues
         val cleanedUrl = when {
@@ -354,6 +376,7 @@ class WebScrapingService {
             isBetterWorldBooks -> cleanBetterWorldBooksUrl(url)
             isWorldOfBooks -> cleanWorldOfBooksUrl(url)
             url.contains("amazon.com", ignoreCase = true) || url.contains("a.co/d/", ignoreCase = true) -> cleanAmazonUrl(url)
+            isEbay -> cleanEbayUrl(url)
             else -> url
         }
         if (cleanedUrl != url) {
@@ -369,6 +392,7 @@ class WebScrapingService {
             isBetterWorldBooks -> 2
             isWorldOfBooks -> 3  // Allow 3 attempts for World of Books
             isAmazon -> 2  // Allow 2 attempts for Amazon
+            isEbay -> 2  // Allow 2 attempts for eBay
             else -> maxRetries
         }
         
@@ -415,9 +439,13 @@ class WebScrapingService {
                 if (isAmazon && attempt >= effectiveMaxRetries) {
                     throw e
                 }
+                // For eBay, allow one retry with the alternate referrer/header set
+                if (isEbay && attempt >= effectiveMaxRetries) {
+                    throw e
+                }
                 // For other exceptions, don't retry unless it's a timeout or specific 403 for BWB/WOB/Amazon
                 if (!isBookOutlet && !(isBetterWorldBooks && e.message?.contains("403") == true) && 
-                    !(isWorldOfBooks && e.message?.contains("403") == true) && !isAmazon) {
+                    !(isWorldOfBooks && e.message?.contains("403") == true) && !isAmazon && !isEbay) {
                     throw e
                 }
             }
@@ -439,6 +467,7 @@ class WebScrapingService {
         val isBetterWorldBooksDomain = isBetterWorldBooksUrl(normalizedUrl)
         val isWorldOfBooksDomain = isWorldOfBooksUrl(normalizedUrl)
         val isAmazonDomain = isAmazonUrl(normalizedUrl)
+        val isEbayDomain = isEbayUrl(normalizedUrl)
         val barnesNobleStrategyAttempt = if (isBarnesNobleUrl) {
             val index = (attempt - 1).coerceIn(0, BARNES_NOBLE_ATTEMPT_ORDER.lastIndex)
             BARNES_NOBLE_ATTEMPT_ORDER[index]
@@ -491,6 +520,11 @@ class WebScrapingService {
                     else -> EDGE_USER_AGENT
                 }
                 isAmazonDomain -> when (attempt % 3) {
+                    0 -> DESKTOP_USER_AGENT
+                    1 -> FIREFOX_USER_AGENT
+                    else -> EDGE_USER_AGENT
+                }
+                isEbayDomain -> when (attempt % 3) {
                     0 -> DESKTOP_USER_AGENT
                     1 -> FIREFOX_USER_AGENT
                     else -> EDGE_USER_AGENT
@@ -683,6 +717,42 @@ class WebScrapingService {
                         simulateAmazonCookies(connection, isFirstVisit = false)
                     }
                 }
+            } else if (isEbayDomain) {
+                when (userAgent) {
+                    FIREFOX_USER_AGENT -> {
+                        connection.header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+                        connection.header("Accept-Language", "en-US,en;q=0.5")
+                        connection.header("Accept-Encoding", "gzip, deflate")
+                    }
+                    EDGE_USER_AGENT -> {
+                        connection.header("sec-ch-ua", "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"121\", \"Microsoft Edge\";v=\"121\"")
+                        connection.header("sec-ch-ua-mobile", "?0")
+                        connection.header("sec-ch-ua-platform", "\"Windows\"")
+                    }
+                    else -> {
+                        connection.header("sec-ch-ua", "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"121\", \"Google Chrome\";v=\"121\"")
+                        connection.header("sec-ch-ua-mobile", "?0")
+                        connection.header("sec-ch-ua-platform", "\"Windows\"")
+                    }
+                }
+
+                when (attempt) {
+                    1 -> {
+                        connection.referrer("https://www.google.com/search?q=ebay+books")
+                        connection.header("Sec-Fetch-Site", "cross-site")
+                    }
+                    else -> {
+                        connection.referrer("https://www.ebay.com/")
+                        connection.header("Sec-Fetch-Site", "same-origin")
+                    }
+                }
+
+                val ebayCookies = sessionCookies
+                    .filter { it.key.startsWith("ebay_") }
+                    .mapKeys { it.key.removePrefix("ebay_") }
+                if (ebayCookies.isNotEmpty()) {
+                    connection.cookies(ebayCookies)
+                }
             } else {
                 connection.header("sec-ch-ua", "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"121\", \"Google Chrome\";v=\"121\"")
                 connection.header("sec-ch-ua-mobile", "?0")
@@ -711,6 +781,7 @@ class WebScrapingService {
                 isBetterWorldBooksDomain -> 1200L // Longer delay for BWB
                 isWorldOfBooksDomain -> 1000L // Standard delay for World of Books
                 isAmazonDomain -> 600L // Short delay for Amazon
+                isEbayDomain -> 600L // Short delay for eBay
                 else -> 1000L
             }
             val minPreDelay = when {
@@ -719,6 +790,7 @@ class WebScrapingService {
                 isBetterWorldBooksDomain -> 600L // Longer minimum delay for BWB
                 isWorldOfBooksDomain -> 400L // Standard minimum delay for World of Books
                 isAmazonDomain -> 100L // Short minimum delay for Amazon
+                isEbayDomain -> 100L // Short minimum delay for eBay
                 else -> 200L
             }
             val preRequestDelay = Random.nextLong(minPreDelay, maxPreDelay)
@@ -757,6 +829,26 @@ class WebScrapingService {
     private fun isAmazonUrl(url: String): Boolean {
         val host = extractHost(url) ?: return false
         return host.contains("amazon.") || host.contains("a.co")
+    }
+
+    private fun isEbayUrl(url: String): Boolean {
+        val host = extractHost(url) ?: return false
+        return host == "ebay.com" ||
+                host.endsWith(".ebay.com") ||
+                host == "ebay.co.uk" ||
+                host.endsWith(".ebay.co.uk") ||
+                host == "ebay.ca" ||
+                host.endsWith(".ebay.ca") ||
+                host == "ebay.de" ||
+                host.endsWith(".ebay.de") ||
+                host == "ebay.fr" ||
+                host.endsWith(".ebay.fr") ||
+                host == "ebay.it" ||
+                host.endsWith(".ebay.it") ||
+                host == "ebay.es" ||
+                host.endsWith(".ebay.es") ||
+                host == "ebay.com.au" ||
+                host.endsWith(".ebay.com.au")
     }
 
     private fun extractHost(url: String): String? {
@@ -804,6 +896,88 @@ class WebScrapingService {
         } catch (e: Exception) {
             Log.w("BookTracker", "WebScraping: Failed to normalize Barnes & Noble URL: ${e.message}")
             cleanedUrl
+        }
+    }
+
+    private fun cleanEbayUrl(url: String): String {
+        var cleanedUrl = url.trim()
+        if (cleanedUrl.isEmpty()) {
+            return cleanedUrl
+        }
+
+        if (!cleanedUrl.startsWith("http://") && !cleanedUrl.startsWith("https://")) {
+            cleanedUrl = "https://$cleanedUrl"
+        }
+        cleanedUrl = cleanedUrl.replaceFirst("http://", "https://")
+
+        return try {
+            val parsed = URL(cleanedUrl)
+            val host = normalizeEbayHost(parsed.host)
+            val itemId = Regex("""^/itm/(?:[^/]+/)?(\d+)""")
+                .find(parsed.path)
+                ?.groupValues
+                ?.get(1)
+
+            val normalizedUrl = if (itemId != null) {
+                "https://www.$host/itm/$itemId"
+            } else {
+                "https://www.$host${parsed.path.ifBlank { "/" }}"
+            }
+            Log.d("BookTracker", "WebScraping: Cleaned eBay URL: $normalizedUrl")
+            normalizedUrl
+        } catch (e: Exception) {
+            Log.w("BookTracker", "WebScraping: Failed to normalize eBay URL: ${e.message}")
+            cleanedUrl
+        }
+    }
+
+    private fun normalizeEbayHost(host: String): String {
+        val lowerHost = host.lowercase(Locale.ROOT).removePrefix("www.")
+        return when {
+            lowerHost == "ebay.co.uk" || lowerHost.endsWith(".ebay.co.uk") -> "ebay.co.uk"
+            lowerHost == "ebay.com.au" || lowerHost.endsWith(".ebay.com.au") -> "ebay.com.au"
+            lowerHost == "ebay.com" || lowerHost.endsWith(".ebay.com") -> "ebay.com"
+            lowerHost == "ebay.ca" || lowerHost.endsWith(".ebay.ca") -> "ebay.ca"
+            lowerHost == "ebay.de" || lowerHost.endsWith(".ebay.de") -> "ebay.de"
+            lowerHost == "ebay.fr" || lowerHost.endsWith(".ebay.fr") -> "ebay.fr"
+            lowerHost == "ebay.it" || lowerHost.endsWith(".ebay.it") -> "ebay.it"
+            lowerHost == "ebay.es" || lowerHost.endsWith(".ebay.es") -> "ebay.es"
+            else -> lowerHost
+        }
+    }
+
+    private suspend fun establishEbaySession() {
+        try {
+            Log.d("BookTracker", "WebScraping: Visiting eBay homepage to establish session...")
+
+            val homepageConnection = Jsoup.connect("https://www.ebay.com/")
+                .followRedirects(true)
+                .ignoreHttpErrors(true)
+                .userAgent(DESKTOP_USER_AGENT)
+                .timeout(15000)
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .header("DNT", "1")
+                .header("Connection", "keep-alive")
+                .header("Upgrade-Insecure-Requests", "1")
+                .header("Sec-Fetch-Dest", "document")
+                .header("Sec-Fetch-Mode", "navigate")
+                .header("Sec-Fetch-Site", "none")
+                .header("Sec-Fetch-User", "?1")
+                .header("Cache-Control", "max-age=0")
+
+            val homepageDoc = homepageConnection.get()
+            Log.d("BookTracker", "WebScraping: Successfully visited eBay homepage (title='${homepageDoc.title()}')")
+
+            val responseCookies = homepageConnection.response().cookies()
+            if (responseCookies.isNotEmpty()) {
+                responseCookies.forEach { (key, value) ->
+                    sessionCookies["ebay_$key"] = value
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("BookTracker", "WebScraping: Failed to establish eBay session: ${e.message}")
+            throw e
         }
     }
 

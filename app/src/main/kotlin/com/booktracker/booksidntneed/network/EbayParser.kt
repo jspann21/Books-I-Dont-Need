@@ -57,6 +57,17 @@ class EbayParser : BookParser {
     
     private fun extractTitle(document: Document): String? {
         Log.d("BookTracker", "EbayParser: Starting title extraction")
+
+        val itemSpecificsRows = document.select(".ux-labels-values")
+        for (row in itemSpecificsRows) {
+            val labelText = row.select(".ux-labels-values__labels .ux-textspans").text()
+            val valueText = row.select(".ux-labels-values__values .ux-textspans").text()
+
+            if (labelText.equals("Book Title", ignoreCase = true) && valueText.isNotBlank()) {
+                Log.d("BookTracker", "EbayParser: Found title in item specifics: '$valueText'")
+                return cleanTitle(valueText)
+            }
+        }
         
         // eBay title selectors (in order of priority)
         val titleSelectors = listOf(
@@ -268,25 +279,27 @@ class EbayParser : BookParser {
             }
         }
         
-        // Also search for JSON data containing ISBN (as found in the HTML)
+        // Also search for JSON data containing ISBN values.
         val scriptElements = document.select("script")
         for (script in scriptElements) {
             val scriptText = script.html()
-            if (scriptText.contains("9780529123855") || scriptText.contains("0529123851")) {
-                if (isbn13 == null) {
-                    val isbn13Match = Regex("\"(9780529123855)\"").find(scriptText)
-                    if (isbn13Match != null) {
-                        isbn13 = isbn13Match.groupValues[1]
-                        Log.d("BookTracker", "EbayParser: Found ISBN-13 in script: '$isbn13'")
-                    }
+            if (isbn13 == null) {
+                val isbn13Match = Regex("\\b(97[89][\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d)\\b")
+                    .find(scriptText)
+                val cleanedISBN = isbn13Match?.groupValues?.get(1)?.let { cleanISBN(it) }
+                if (cleanedISBN != null) {
+                    isbn13 = cleanedISBN
+                    Log.d("BookTracker", "EbayParser: Found ISBN-13 in script: '$isbn13'")
                 }
-                
-                if (isbn10 == null) {
-                    val isbn10Match = Regex("\"(0529123851)\"").find(scriptText)
-                    if (isbn10Match != null) {
-                        isbn10 = isbn10Match.groupValues[1]
-                        Log.d("BookTracker", "EbayParser: Found ISBN-10 in script: '$isbn10'")
-                    }
+            }
+
+            if (isbn10 == null) {
+                val isbn10Match = Regex("\\b(\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?\\d[\\s-]?[\\dX])\\b", RegexOption.IGNORE_CASE)
+                    .find(scriptText)
+                val cleanedISBN = isbn10Match?.groupValues?.get(1)?.let { cleanISBN(it) }
+                if (cleanedISBN != null) {
+                    isbn10 = cleanedISBN
+                    Log.d("BookTracker", "EbayParser: Found ISBN-10 in script: '$isbn10'")
                 }
             }
         }
