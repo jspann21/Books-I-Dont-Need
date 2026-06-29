@@ -65,6 +65,8 @@ object AutoUpdateScheduler {
                 ExistingWorkPolicy.REPLACE,
                 oneTime
             )
+        } else {
+            wm.cancelUniqueWork(UNIQUE_ONE_TIME_NAME)
         }
 
         // Use a small flex so execution happens close to the chosen clock time
@@ -97,5 +99,3 @@ object AutoUpdateScheduler {
         wm.cancelUniqueWork(UNIQUE_MANUAL_WORK_NAME)
     }
 }
-
-

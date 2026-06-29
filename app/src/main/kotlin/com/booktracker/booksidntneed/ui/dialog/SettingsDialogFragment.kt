@@ -14,11 +14,7 @@ import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
 import com.booktracker.booksidntneed.work.AutoUpdateScheduler
 import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.PowerManager
-import android.provider.Settings
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -94,18 +90,6 @@ class SettingsDialogFragment : DialogFragment() {
                             notificationPermissionLauncher.launch(permission)
                         }
                     }
-                    // Suggest the user exclude from battery optimizations (can be skipped)
-                    try {
-                        val pm = requireContext().getSystemService(PowerManager::class.java)
-                        val pkg = requireContext().packageName
-                        val ignoring = pm?.isIgnoringBatteryOptimizations(pkg) ?: false
-                        if (!ignoring) {
-                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                                .setData(Uri.parse("package:$pkg"))
-                            // Gracefully attempt; some OEMs may restrict this
-                            try { startActivity(intent) } catch (_: Exception) { }
-                        }
-                    } catch (_: Exception) { }
                     AutoUpdateScheduler.scheduleDaily(
                         requireContext(),
                         minutes,

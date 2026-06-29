@@ -103,7 +103,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
 
             // Set initial foreground info with progress
             val initialProgressText = "Starting price updates... (0 of $totalStores)"
-            setForeground(createForegroundInfo(initialProgressText, totalProgress = totalStores))
+            setForegroundIfAllowed(createForegroundInfo(initialProgressText, totalProgress = totalStores))
             setProgressData(0, totalStores, initialProgressText)
 
             coroutineScope {
@@ -232,6 +232,16 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 KEY_PROGRESS_TEXT to progressText
             )
         )
+    }
+
+    private suspend fun setForegroundIfAllowed(foregroundInfo: ForegroundInfo) {
+        try {
+            setForeground(foregroundInfo)
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "Unable to promote auto update to foreground work; continuing as regular work.", e)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Missing permission for foreground auto update; continuing as regular work.", e)
+        }
     }
 
     private data class PriceUpdateTarget(

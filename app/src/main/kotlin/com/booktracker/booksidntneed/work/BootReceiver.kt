@@ -23,13 +23,19 @@ class BootReceiver : BroadcastReceiver() {
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 Log.d("BootReceiver", "Rescheduling daily update after event: $action")
+                val pendingResult = goAsync()
+                val appContext = context.applicationContext
                 scope.launch {
-                    val enabled = AutoUpdatePreferences.isEnabled(context).first()
-                    if (enabled) {
-                        val minutes = AutoUpdatePreferences.timeMinutes(context).first()
-                        AutoUpdateScheduler.scheduleDaily(context, minutes, androidx.work.ExistingPeriodicWorkPolicy.REPLACE)
-                    } else {
-                        AutoUpdateScheduler.cancel(context)
+                    try {
+                        val enabled = AutoUpdatePreferences.isEnabled(appContext).first()
+                        if (enabled) {
+                            val minutes = AutoUpdatePreferences.timeMinutes(appContext).first()
+                            AutoUpdateScheduler.scheduleDaily(appContext, minutes, androidx.work.ExistingPeriodicWorkPolicy.REPLACE)
+                        } else {
+                            AutoUpdateScheduler.cancel(appContext)
+                        }
+                    } finally {
+                        pendingResult.finish()
                     }
                 }
             }

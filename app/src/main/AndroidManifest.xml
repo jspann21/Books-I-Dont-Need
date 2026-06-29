@@ -18,7 +18,6 @@
       while providing a visible progress notification to the user.
     -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:name=".BookTrackerApplication"
