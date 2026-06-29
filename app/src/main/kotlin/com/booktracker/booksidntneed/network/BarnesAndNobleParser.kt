@@ -1,34 +1,43 @@
 package com.booktracker.booksidntneed.network
 
 import android.util.Log
+import org.json.JSONArray
+import org.json.JSONObject
 import org.jsoup.nodes.Document
+import java.net.URL
+import java.net.URLDecoder
+import java.util.Locale
 
 class BarnesAndNobleParser : BookParser {
-    
-    override fun canParse(url: String): Boolean {
-        return url.contains("barnesandnoble.com", ignoreCase = true) ||
-               url.contains("bn.com", ignoreCase = true)
+    companion object {
+        private const val TAG = "BarnesAndNobleParser"
     }
-    
+
+    override fun canParse(url: String): Boolean {
+        val host = RequestStrategyUtils.extractHost(url) ?: return false
+        return host == "barnesandnoble.com" ||
+            host.endsWith(".barnesandnoble.com") ||
+            host == "bn.com" ||
+            host.endsWith(".bn.com")
+    }
+
     override fun getStoreName(): String = "Barnes & Noble"
-    
+
     override fun parse(document: Document, url: String): ParsedBookInfo? {
-        try {
-            Log.d("BookTracker", "BarnesAndNobleParser: Starting to parse URL: $url")
-            
-            val title = extractTitle(document)
+        return try {
+            Log.d(TAG, "Starting to parse URL: $url")
+
+            val title = extractTitle(document, url)
             val author = extractAuthor(document)
+            val isbn = extractISBN(document, url)
             val price = extractPrice(document)
-            val isbn = extractISBN(document)
             val coverImage = extractCoverImage(document)
-            
-            Log.d("BookTracker", "BarnesAndNobleParser: Extracted data - Title: '$title', Author: '$author', Price: $price")
-            
-            if (title.isNullOrBlank() || author.isNullOrBlank()) {
-                Log.w("BookTracker", "BarnesAndNobleParser: Missing required fields - Title: '$title', Author: '$author'")
-                return null
-            }
-            
+            val publisher = extractPublisher(document)
+            val publishedDate = extractPublishedDate(document)
+            val pages = extractPages(document)
+
+            Log.d(TAG, "Extracted data - Title: '$title', Author: '$author', ISBN10: '${isbn.first}', ISBN13: '${isbn.second}', Price: $price")
+
             val bookInfo = ParsedBookInfo(
                 title = title,
                 author = author,
@@ -37,20 +46,41 @@ class BarnesAndNobleParser : BookParser {
                 price = price,
                 storeName = getStoreName(),
                 storeUrl = url,
-                coverImageUrl = coverImage
+                coverImageUrl = coverImage,
+                publisher = publisher,
+                publishedDate = publishedDate,
+                pages = pages
             )
-            
-            Log.d("BookTracker", "BarnesAndNobleParser: Successfully created ParsedBookInfo")
-            return bookInfo
+
+            if (!bookInfo.isValid()) {
+                Log.w(TAG, "Missing required fields - Title: '$title', Author: '$author', ISBN: '$isbn'")
+                return null
+            }
+
+            Log.d(TAG, "Successfully created ParsedBookInfo")
+            bookInfo
         } catch (e: Exception) {
-            Log.e("BookTracker", "BarnesAndNobleParser: Exception during parsing", e)
-            return null
+            Log.e(TAG, "Exception during parsing", e)
+            null
         }
     }
-    
-    private fun extractTitle(document: Document): String? {
-        // Try multiple selectors for title with more comprehensive fallbacks
+
+    private fun extractTitle(document: Document, url: String): String? {
+        val metaTitle = document.selectFirst("meta[property='og:title'], meta[name='twitter:title'], meta[name='title']")
+            ?.attr("content")
+            ?.trim()
+        if (isUsableTitle(metaTitle)) {
+            return cleanTitle(metaTitle!!)
+        }
+
+        val jsonTitle = extractStringFromStructuredData(document, "name")
+        if (isUsableTitle(jsonTitle)) {
+            return cleanTitle(jsonTitle!!)
+        }
+
         val titleSelectors = listOf(
+            "h1.product__title",
+            ".product__title",
             "h1.pdp-product-title",
             "[data-testid='product-title']",
             ".product-title h1",
@@ -59,46 +89,91 @@ class BarnesAndNobleParser : BookParser {
             ".product-info h1",
             ".book-title",
             "h1.product-name",
-            "h1",
-            "[data-automation-id='product-title']"
+            "[data-automation-id='product-title']",
+            "h1"
         )
-        
+
         for (selector in titleSelectors) {
-            val title = document.select(selector).first()?.text()?.trim()
-            if (!title.isNullOrBlank() && title.length > 3) {
-                Log.d("BookTracker", "BarnesAndNobleParser: Found title with selector '$selector': '$title'")
-                return cleanTitle(title)
+            val title = document.selectFirst(selector)?.text()?.trim()
+            if (isUsableTitle(title)) {
+                Log.d(TAG, "Found title with selector '$selector': '$title'")
+                return cleanTitle(title!!)
             }
         }
-        
-        // Fallback: try to extract from page title
-        val pageTitle = document.select("title").first()?.text()
-        if (!pageTitle.isNullOrBlank()) {
-            Log.d("BookTracker", "BarnesAndNobleParser: Trying to extract title from page title: '$pageTitle'")
-            
-            // Barnes & Noble typically uses format: "Book Title by Author | Barnes & Noble"
-            val titlePattern = Regex("^([^|]+?)(?:\\s*by\\s+[^|]+)?\\s*\\|\\s*Barnes")
-            val match = titlePattern.find(pageTitle)
-            if (match != null) {
-                val extractedTitle = match.groupValues[1].trim()
-                if (extractedTitle.isNotBlank()) {
-                    Log.d("BookTracker", "BarnesAndNobleParser: Extracted title from page title: '$extractedTitle'")
-                    return cleanTitle(extractedTitle)
-                }
-            }
+
+        val pageTitle = document.title().trim()
+        if (isUsableTitle(pageTitle)) {
+            return cleanTitle(pageTitle)
         }
-        
-        Log.w("BookTracker", "BarnesAndNobleParser: No title found")
+
+        val urlTitle = extractTitleFromUrl(url)
+        if (isUsableTitle(urlTitle)) {
+            Log.d(TAG, "Using title from URL slug: '$urlTitle'")
+            return urlTitle
+        }
+
+        Log.w(TAG, "No title found")
         return null
     }
-    
-    private fun cleanTitle(title: String): String {
-        return title.replace(Regex("\\(.*?\\)$"), "") // Remove trailing parentheses
-            .trim()
+
+    private fun isUsableTitle(title: String?): Boolean {
+        if (title.isNullOrBlank() || title.length < 4) {
+            return false
+        }
+        val lowerTitle = title.lowercase(Locale.ROOT)
+        return !lowerTitle.contains("barnes & noble's online bookstore") &&
+            !lowerTitle.equals("barnes & noble") &&
+            !lowerTitle.contains("access denied") &&
+            !lowerTitle.contains("captcha") &&
+            !lowerTitle.contains("robot") &&
+            !lowerTitle.contains("page not found")
     }
-    
+
+    private fun cleanTitle(title: String): String {
+        return title
+            .replace("&amp;", "&")
+            .replace(Regex("\\s*[|\\-]\\s*Barnes\\s*&\\s*Noble(?:®|\\(R\\))?.*$", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("\\s+by\\s+.+$", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("\\s*\\((?:hardcover|paperback|ebook|nook book|mass market paperback|board book)\\)\\s*$", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("\\s+"), " ")
+            .trim(' ', '-', '|', ',', ':')
+    }
+
+    private fun extractTitleFromUrl(url: String): String? {
+        val slug = Regex("/w/([^/?#]+)/").find(url)?.groupValues?.getOrNull(1)
+            ?: Regex("/w/([^/?#]+)").find(url)?.groupValues?.getOrNull(1)
+            ?: return null
+
+        val title = URLDecoder.decode(slug, "UTF-8")
+            .replace("-", " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+
+        return title
+            .split(" ")
+            .joinToString(" ") { word ->
+                word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+            }
+            .let { cleanTitle(it) }
+            .takeIf { it.isNotBlank() }
+    }
+
     private fun extractAuthor(document: Document): String? {
+        val metaAuthor = document.selectFirst("meta[property='book:author'], meta[name='author'], meta[property='article:author']")
+            ?.attr("content")
+            ?.trim()
+        if (isUsableAuthor(metaAuthor)) {
+            return cleanAuthor(metaAuthor!!)
+        }
+
+        val jsonAuthor = extractAuthorFromStructuredData(document)
+        if (isUsableAuthor(jsonAuthor)) {
+            return cleanAuthor(jsonAuthor!!)
+        }
+
         val authorSelectors = listOf(
+            ".product__contributor a",
+            ".product-contributor a",
             "[data-testid='author-list'] a",
             ".contributors a",
             ".product-details .author",
@@ -108,74 +183,119 @@ class BarnesAndNobleParser : BookParser {
             ".book-contributors a",
             ".contributor-name",
             "[data-automation-id='author'] a",
+            "a[href*='contributorName=']",
             "a[href*='/author/']",
             ".by-author a"
         )
-        
+
         for (selector in authorSelectors) {
-            val elements = document.select(selector)
-            for (element in elements) {
-                val author = element.text().trim()
-                if (author.isNotBlank() && author.length > 2 && !author.contains("(")) {
-                    Log.d("BookTracker", "BarnesAndNobleParser: Found author with selector '$selector': '$author'")
-                    return cleanAuthorName(author)
-                }
+            val authors = document.select(selector)
+                .map { it.text().trim() }
+                .filter { isUsableAuthor(it) }
+                .map { cleanAuthor(it) }
+                .distinct()
+
+            if (authors.isNotEmpty()) {
+                val author = authors.joinToString(", ")
+                Log.d(TAG, "Found author with selector '$selector': '$author'")
+                return author
             }
         }
-        
-        // Fallback: look for author in text patterns
+
         val authorTextSelectors = listOf(
+            ".product__contributor",
             ".contributors",
             ".pdp-contributor-list",
             ".product-details",
             ".book-details"
         )
-        
+
         for (selector in authorTextSelectors) {
-            val text = document.select(selector).first()?.text()
-            if (!text.isNullOrBlank()) {
-                val byRegex = Regex("(?i)by\\s+([^,()]+?)(?:,|\\(|$)")
-                val match = byRegex.find(text)
-                if (match != null) {
-                    val author = match.groupValues[1].trim()
-                    if (author.length > 2) {
-                        Log.d("BookTracker", "BarnesAndNobleParser: Found author with 'by' pattern: '$author'")
-                        return cleanAuthorName(author)
-                    }
-                }
+            val author = extractAuthorFromText(document.selectFirst(selector)?.text().orEmpty())
+            if (isUsableAuthor(author)) {
+                Log.d(TAG, "Found author from '$selector' text: '$author'")
+                return cleanAuthor(author!!)
             }
         }
-        
-        // Final fallback: extract from page title
-        val pageTitle = document.select("title").first()?.text()
-        if (!pageTitle.isNullOrBlank()) {
-            val authorPattern = Regex("by\\s+([^|]+?)\\s*\\|")
-            val match = authorPattern.find(pageTitle)
-            if (match != null) {
-                val author = match.groupValues[1].trim()
-                if (author.isNotBlank()) {
-                    Log.d("BookTracker", "BarnesAndNobleParser: Extracted author from page title: '$author'")
-                    return cleanAuthorName(author)
-                }
-            }
+
+        val pageAuthor = extractAuthorFromText(document.title())
+        if (isUsableAuthor(pageAuthor)) {
+            return cleanAuthor(pageAuthor!!)
         }
-        
-        Log.w("BookTracker", "BarnesAndNobleParser: No author found")
+
+        Log.w(TAG, "No author found")
         return null
     }
-    
-    private fun cleanAuthorName(author: String): String {
-        return author.replace(Regex("\\(.*?\\)"), "") // Remove parentheses content
-            .replace(Regex("\\[.*?]"), "")  // Remove bracket content
+
+    private fun extractAuthorFromText(text: String): String? {
+        if (text.isBlank()) {
+            return null
+        }
+
+        val patterns = listOf(
+            Regex("(?i)\\bBy\\s+([^|\\n\\r]+?)(?=\\s*(?:Format|Hardcover|Paperback|NOOK|\\$|$))"),
+            Regex("(?i)\\bAuthor\\s*[:\\-]\\s*([^|\\n\\r;]+?)(?=\\s{2,}|\\b(?:Publisher|ISBN|Format|Pages|Publication Date)\\b|$)")
+        )
+
+        for (pattern in patterns) {
+            val author = pattern.find(text)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.replace(Regex("\\s*,\\s*$"), "")
+                ?.trim()
+            if (isUsableAuthor(author)) {
+                return author
+            }
+        }
+
+        return null
+    }
+
+    private fun isUsableAuthor(author: String?): Boolean {
+        if (author.isNullOrBlank() || author.length !in 2..160) {
+            return false
+        }
+        val lowerAuthor = author.lowercase(Locale.ROOT)
+        return !lowerAuthor.contains("barnes") &&
+            !lowerAuthor.contains("noble") &&
+            !lowerAuthor.contains("customer") &&
+            !lowerAuthor.contains("review") &&
+            !lowerAuthor.contains("hardcover") &&
+            !lowerAuthor.contains("paperback") &&
+            !lowerAuthor.contains("$") &&
+            !lowerAuthor.contains("isbn")
+    }
+
+    private fun cleanAuthor(author: String): String {
+        return author
+            .replace("&amp;", "&")
             .replace("By ", "", ignoreCase = true)
             .replace("Author: ", "", ignoreCase = true)
-            .trim()
+            .replace("Authors: ", "", ignoreCase = true)
+            .replace(Regex("\\(.*?\\)"), "")
+            .replace(Regex("\\[.*?]"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim(' ', ',', ':', '-', '|')
     }
-    
+
     private fun extractPrice(document: Document): Double? {
-        Log.d("BookTracker", "BarnesAndNobleParser: Starting price extraction")
-        
+        Log.d(TAG, "Starting price extraction")
+
+        val metaPrice = document.selectFirst("meta[property='product:price:amount'], meta[itemprop='price'], meta[name='price']")
+            ?.attr("content")
+            ?.let { extractPriceFromText(it) }
+        if (metaPrice != null && metaPrice > 0) {
+            return metaPrice
+        }
+
+        val jsonPrice = extractPriceFromStructuredData(document)
+        if (jsonPrice != null && jsonPrice > 0) {
+            return jsonPrice
+        }
+
         val priceSelectors = listOf(
+            ".product__prices .product-price",
+            ".product-price",
             "[data-testid='current-price']",
             ".current-price",
             ".price-current",
@@ -185,203 +305,159 @@ class BarnesAndNobleParser : BookParser {
             ".product-price .current",
             ".price-info .price",
             ".book-price",
-            "[data-automation-id='price']"
+            "[data-automation-id='price']",
+            "[class*='price']"
         )
-        
+
         for (selector in priceSelectors) {
             val elements = document.select(selector)
-            Log.d("BookTracker", "BarnesAndNobleParser: Trying price selector '$selector', found ${elements.size} elements")
-            
-            for (element in elements) {
-                val priceText = element.text()
-                if (priceText.isNotBlank()) {
-                    Log.d("BookTracker", "BarnesAndNobleParser: Found price text: '$priceText'")
-                    val price = extractPriceFromText(priceText)
-                    if (price != null && price > 0) {
-                        Log.d("BookTracker", "BarnesAndNobleParser: Successfully extracted price: $price")
-                        return price
-                    }
+            Log.d(TAG, "Trying price selector '$selector', found ${elements.size} elements")
+
+            for (element in elements.take(8)) {
+                val text = element.attr("content").ifBlank { element.text() }.trim()
+                if (text.length > 120) {
+                    continue
+                }
+
+                val price = extractPriceFromText(text)
+                if (price != null && price > 0) {
+                    Log.d(TAG, "Successfully extracted price: $price")
+                    return price
                 }
             }
         }
-        
-        Log.w("BookTracker", "BarnesAndNobleParser: No price found")
-        return null
+
+        return document.select("*:containsOwn($)")
+            .asSequence()
+            .mapNotNull { element ->
+                val text = element.ownText().trim()
+                if (text.length <= 60) extractPriceFromText(text) else null
+            }
+            .firstOrNull { it > 0 }
     }
-    
+
     private fun extractPriceFromText(priceText: String): Double? {
-        return try {
-            // Remove currency symbols and clean the text
-            val cleanPrice = priceText.replace("$", "")
-                .replace(",", "")
-                .replace("USD", "")
-                .replace("Free", "0")
-                .trim()
-            
-            // Handle various price formats
-            val priceMatch = Regex("(\\d+\\.\\d{2})").find(cleanPrice)
-            priceMatch?.value?.toDoubleOrNull()
-        } catch (e: Exception) {
-            Log.e("BookTracker", "BarnesAndNobleParser: Error parsing price from '$priceText'", e)
-            null
-        }
+        val match = Regex("\\$\\s*([0-9,]+(?:\\.[0-9]{2})?)").find(priceText)
+            ?: Regex("\"price\"\\s*:\\s*\"?([0-9,]+(?:\\.[0-9]{2})?)\"?", RegexOption.IGNORE_CASE).find(priceText)
+            ?: Regex("^\\s*([0-9,]+(?:\\.[0-9]{2})?)\\s*$").find(priceText)
+        return match?.groupValues?.getOrNull(1)?.replace(",", "")?.toDoubleOrNull()
     }
-    
-    private fun extractISBN(document: Document): Pair<String?, String?> {
+
+    private fun extractISBN(document: Document, url: String): Pair<String?, String?> {
         var isbn10: String? = null
         var isbn13: String? = null
-        
-        Log.d("BookTracker", "BarnesAndNobleParser: Starting ISBN extraction")
-        
-        // First try to get ISBN from structured data
-        val isbnElement = document.select("[itemprop='isbn']").first()
-        if (isbnElement != null) {
-            val isbnValue = isbnElement.text().trim()
-            if (isbnValue.isNotBlank()) {
-                if (isbnValue.length == 10) {
-                    isbn10 = isbnValue
-                    Log.d("BookTracker", "BarnesAndNobleParser: Found ISBN-10 from itemprop: '$isbn10'")
-                } else if (isbnValue.length == 13) {
-                    isbn13 = isbnValue
-                    Log.d("BookTracker", "BarnesAndNobleParser: Found ISBN-13 from itemprop: '$isbn13'")
-                }
+
+        Log.d(TAG, "Starting ISBN extraction")
+
+        val urlIsbn = extractISBNFromText(url)
+        isbn10 = urlIsbn.first
+        isbn13 = urlIsbn.second
+
+        val isbnMetaSelectors = listOf(
+            "meta[property='book:isbn']",
+            "meta[name='isbn']",
+            "meta[itemprop='isbn']",
+            "[itemprop='isbn']"
+        )
+
+        for (selector in isbnMetaSelectors) {
+            val candidate = document.selectFirst(selector)?.let { element ->
+                element.attr("content").ifBlank { element.text() }
             }
+            val parsed = extractISBNFromText(candidate.orEmpty())
+            isbn10 = isbn10 ?: parsed.first
+            isbn13 = isbn13 ?: parsed.second
         }
-        
-        // Try to extract missing ISBNs from image URL
+
+        val jsonIsbn = extractStringFromStructuredData(document, "isbn")
+            ?: extractStringFromStructuredData(document, "gtin13")
+            ?: extractStringFromStructuredData(document, "sku")
+        val parsedJson = extractISBNFromText(jsonIsbn.orEmpty())
+        isbn10 = isbn10 ?: parsedJson.first
+        isbn13 = isbn13 ?: parsedJson.second
+
         if (isbn10 == null || isbn13 == null) {
-            Log.d("BookTracker", "BarnesAndNobleParser: Attempting to extract ISBN from image URL")
-            
-            // Get image URL without HTTPS conversion for ISBN extraction
-            val imageUrl = extractCoverImageForISBN(document)
-            if (imageUrl != null) {
-                Log.d("BookTracker", "BarnesAndNobleParser: Using image URL for ISBN extraction: '$imageUrl'")
-                val isbnFromImage = extractISBNFromImageUrl(imageUrl)
-                Log.d("BookTracker", "BarnesAndNobleParser: Extracted ISBN from image URL: '$isbnFromImage'")
-                
-                if (isbnFromImage != null) {
-                    if (isbnFromImage.length == 10 && isbn10 == null) {
-                        isbn10 = isbnFromImage
-                        Log.d("BookTracker", "BarnesAndNobleParser: Set ISBN-10 from image URL: '$isbn10'")
-                    } else if (isbnFromImage.length == 13 && isbn13 == null) {
-                        isbn13 = isbnFromImage
-                        Log.d("BookTracker", "BarnesAndNobleParser: Set ISBN-13 from image URL: '$isbn13'")
-                    }
-                }
-            }
+            val imageIsbn = extractISBNFromText(extractCoverImage(document).orEmpty())
+            isbn10 = isbn10 ?: imageIsbn.first
+            isbn13 = isbn13 ?: imageIsbn.second
         }
-        
-        // Fallback: Look for ISBN in product details tables
-        if (isbn10 == null && isbn13 == null) {
-            val detailSelectors = listOf(
-                ".product-details-tabs",
-                ".specifications",
-                ".product-info",
-                ".book-details",
-                ".pdp-details",
-                "[data-testid='product-details']",
-                "table"
-            )
-            
-            for (selector in detailSelectors) {
-                val sections = document.select(selector)
-                for (section in sections) {
-                    val text = section.text()
-                    if (text.contains("ISBN", ignoreCase = true)) {
-                        Log.d("BookTracker", "BarnesAndNobleParser: Found ISBN section: '$text'")
-                        
-                        if (text.contains("ISBN-10", ignoreCase = true) && isbn10 == null) {
-                            isbn10 = extractISBNFromText(text)
-                            Log.d("BookTracker", "BarnesAndNobleParser: Extracted ISBN-10: '$isbn10'")
-                        }
-                        if (text.contains("ISBN-13", ignoreCase = true) && isbn13 == null) {
-                            isbn13 = extractISBNFromText(text)
-                            Log.d("BookTracker", "BarnesAndNobleParser: Extracted ISBN-13: '$isbn13'")
-                        }
-                    }
-                }
-            }
+
+        if (isbn10 == null || isbn13 == null) {
+            val documentIsbn = extractISBNFromText(document.text())
+            isbn10 = isbn10 ?: documentIsbn.first
+            isbn13 = isbn13 ?: documentIsbn.second
         }
-        
-        Log.d("BookTracker", "BarnesAndNobleParser: Final ISBN results - ISBN-10: '$isbn10', ISBN-13: '$isbn13'")
+
+        Log.d(TAG, "Final ISBN results - ISBN-10: '$isbn10', ISBN-13: '$isbn13'")
         return Pair(isbn10, isbn13)
     }
-    
-    private fun extractCoverImageForISBN(document: Document): String? {
-        // Extract image URL without HTTPS conversion for ISBN extraction
-        
-        // Try structured data first
-        val structuredImage = document.select("img[itemprop='image']").first()
-        if (structuredImage != null) {
-            val imageUrl = structuredImage.attr("src")
-            if (imageUrl.isNotBlank() && isValidImageUrl(imageUrl)) {
-                return imageUrl
-            }
+
+    private fun extractISBNFromText(text: String): Pair<String?, String?> {
+        if (text.isBlank()) {
+            return Pair(null, null)
         }
-        
-        // Try Open Graph meta tag
-        val ogImage = document.select("meta[property='og:image']").first()
-        if (ogImage != null) {
-            val imageUrl = ogImage.attr("content")
-            if (imageUrl.isNotBlank() && isValidImageUrl(imageUrl)) {
-                return imageUrl
-            }
+
+        val isbn13 = Regex("(?<!\\d)(97[89](?:[\\s-]?\\d){10})(?!\\d)", RegexOption.IGNORE_CASE)
+            .find(text)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.replace(Regex("[\\s-]"), "")
+            ?.takeIf { isValidIsbn13(it) }
+
+        val isbn10 = Regex("(?<!\\d)(\\d(?:[\\s-]?\\d){8}[\\dX])(?!\\d)", RegexOption.IGNORE_CASE)
+            .find(text)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.replace(Regex("[\\s-]"), "")
+            ?.uppercase(Locale.ROOT)
+            ?.takeIf { isValidIsbn10(it) }
+
+        return Pair(isbn10, isbn13)
+    }
+
+    private fun isValidIsbn10(isbn: String): Boolean {
+        if (!isbn.matches(Regex("\\d{9}[\\dX]"))) {
+            return false
         }
-        
-        return null
+
+        val sum = isbn.mapIndexed { index, char ->
+            val value = if (char == 'X') 10 else char.digitToInt()
+            value * (10 - index)
+        }.sum()
+
+        return sum % 11 == 0
     }
-    
-    private fun extractISBNFromImageUrl(imageUrl: String): String? {
-        // B&N image URLs typically contain ISBN, e.g., "/pimages/9781433572852_p0_v2_s500x550.jpg"
-        val isbnPattern = Regex("/(\\d{10}|\\d{13})[_./]")
-        val match = isbnPattern.find(imageUrl)
-        return match?.groupValues?.get(1)
-    }
-    
-    private fun extractISBNFromText(text: String): String? {
-        // Extract ISBN numbers from text
-        val isbnWithLabelRegex = Regex("ISBN-?(?:10|13)?[:\\s]+([\\d\\sX-]+)")
-        val labelMatch = isbnWithLabelRegex.find(text)
-        if (labelMatch != null) {
-            val isbnCandidate = labelMatch.groupValues[1].replace(Regex("[\\s-]"), "")
-            if (isbnCandidate.matches(Regex("\\d{9}[\\dX]")) || isbnCandidate.matches(Regex("\\d{13}"))) {
-                return isbnCandidate
-            }
+
+    private fun isValidIsbn13(isbn: String): Boolean {
+        if (!isbn.matches(Regex("\\d{13}"))) {
+            return false
         }
-        
-        // Fallback: extract any ISBN-like numbers
-        val isbnRegex = Regex("\\b\\d{9}[\\dX]\\b|\\b\\d{13}\\b")
-        return isbnRegex.find(text)?.value
+
+        val sum = isbn.take(12).mapIndexed { index, char ->
+            char.digitToInt() * if (index % 2 == 0) 1 else 3
+        }.sum()
+        val checkDigit = (10 - (sum % 10)) % 10
+
+        return checkDigit == isbn.last().digitToInt()
     }
-    
+
     private fun extractCoverImage(document: Document): String? {
-        Log.d("BookTracker", "BarnesAndNobleParser: Starting image extraction")
-        
-        // First try structured data
-        val structuredImage = document.select("img[itemprop='image']").first()
-        if (structuredImage != null) {
-            val imageUrl = structuredImage.attr("src")
-            if (imageUrl.isNotBlank() && isValidImageUrl(imageUrl)) {
-                val httpsUrl = convertToHttps(imageUrl)
-                Log.d("BookTracker", "BarnesAndNobleParser: Found image from itemprop: $httpsUrl")
-                return httpsUrl
-            }
+        Log.d(TAG, "Starting image extraction")
+
+        val metaImage = document.selectFirst("meta[property='og:image'], meta[name='twitter:image']")
+            ?.attr("content")
+            ?.trim()
+        if (isValidImageUrl(metaImage)) {
+            return makeAbsoluteUrl(metaImage!!, document)
         }
-        
-        // Try Open Graph meta tag
-        val ogImage = document.select("meta[property='og:image']").first()
-        if (ogImage != null) {
-            val imageUrl = ogImage.attr("content")
-            Log.d("BookTracker", "BarnesAndNobleParser: Original og:image URL: '$imageUrl'")
-            if (imageUrl.isNotBlank() && isValidImageUrl(imageUrl)) {
-                val httpsUrl = convertToHttps(imageUrl)
-                Log.d("BookTracker", "BarnesAndNobleParser: Found image from og:image: $httpsUrl")
-                return httpsUrl
-            }
+
+        val jsonImage = extractStringFromStructuredData(document, "image")
+        if (isValidImageUrl(jsonImage)) {
+            return makeAbsoluteUrl(jsonImage!!, document)
         }
-        
-        // Fallback to regular selectors
+
         val imageSelectors = listOf(
+            "img[itemprop='image']",
             "[data-testid='product-image'] img",
             ".product-image img",
             ".pdp-image img",
@@ -391,48 +467,252 @@ class BarnesAndNobleParser : BookParser {
             ".product-photo img",
             "[data-automation-id='product-image'] img",
             "img[alt*='cover']",
-            "img[alt*='book']"
+            "img[alt*='book']",
+            "img[src*='cdn.shopify.com']",
+            "img[src*='pimages']"
         )
-        
+
         for (selector in imageSelectors) {
             val elements = document.select(selector)
-            Log.d("BookTracker", "BarnesAndNobleParser: Trying image selector '$selector', found ${elements.size} elements")
-            
+            Log.d(TAG, "Trying image selector '$selector', found ${elements.size} elements")
+
             for (element in elements) {
-                val imageUrl = element.attr("src")
-                val dataSrc = element.attr("data-src")
-                
-                val urls = listOf(imageUrl, dataSrc).filter { it.isNotBlank() }
-                for (url in urls) {
-                    if (isValidImageUrl(url)) {
-                        val httpsUrl = convertToHttps(url)
-                        Log.d("BookTracker", "BarnesAndNobleParser: Found valid image URL: $httpsUrl")
-                        return httpsUrl
+                val imageUrl = element.attr("content")
+                    .ifBlank { element.attr("src") }
+                    .ifBlank { element.attr("data-src") }
+                    .ifBlank { element.attr("srcset").substringBefore(" ") }
+                    .trim()
+
+                if (isValidImageUrl(imageUrl)) {
+                    val absoluteUrl = makeAbsoluteUrl(imageUrl, document)
+                    Log.d(TAG, "Found valid image URL: $absoluteUrl")
+                    return absoluteUrl
+                }
+            }
+        }
+
+        Log.w(TAG, "No valid image found")
+        return null
+    }
+
+    private fun isValidImageUrl(url: String?): Boolean {
+        if (url.isNullOrBlank()) {
+            return false
+        }
+        val lowerUrl = url.lowercase(Locale.ROOT)
+        return !lowerUrl.contains("1x1") &&
+            !lowerUrl.contains("placeholder") &&
+            !lowerUrl.contains("grey-box.png") &&
+            !lowerUrl.contains("logo") &&
+            (lowerUrl.contains(".jpg") ||
+                lowerUrl.contains(".jpeg") ||
+                lowerUrl.contains(".png") ||
+                lowerUrl.contains(".webp"))
+    }
+
+    private fun makeAbsoluteUrl(url: String, document: Document): String {
+        val absoluteUrl = when {
+            url.startsWith("http://") -> url.replaceFirst("http://", "https://")
+            url.startsWith("https://") -> url
+            url.startsWith("//") -> "https:$url"
+            else -> runCatching { URL(URL(document.baseUri()), url).toString() }.getOrDefault(url)
+        }
+        return absoluteUrl.replace("&amp;", "&")
+    }
+
+    private fun extractStringFromStructuredData(document: Document, field: String): String? {
+        for (jsonObject in structuredDataObjects(document)) {
+            findJsonValue(jsonObject, field)?.let { return it }
+        }
+        return extractStringFromScripts(document, field)
+    }
+
+    private fun extractAuthorFromStructuredData(document: Document): String? {
+        for (jsonObject in structuredDataObjects(document)) {
+            val author = jsonObject.opt("author") ?: jsonObject.opt("authors")
+            when (author) {
+                is String -> if (isUsableAuthor(author)) return author
+                is JSONObject -> {
+                    val name = author.optString("name")
+                    if (isUsableAuthor(name)) return name
+                }
+                is JSONArray -> {
+                    val names = (0 until author.length()).mapNotNull { index ->
+                        when (val item = author.opt(index)) {
+                            is String -> item.takeIf { isUsableAuthor(it) }
+                            is JSONObject -> item.optString("name").takeIf { isUsableAuthor(it) }
+                            else -> null
+                        }
+                    }.distinct()
+                    if (names.isNotEmpty()) {
+                        return names.joinToString(", ")
                     }
                 }
             }
         }
-        
-        Log.w("BookTracker", "BarnesAndNobleParser: No valid image found")
+
+        return extractAuthorFromScripts(document)
+    }
+
+    private fun extractPriceFromStructuredData(document: Document): Double? {
+        for (jsonObject in structuredDataObjects(document)) {
+            val directPrice = jsonObject.optString("price").takeIf { it.isNotBlank() }?.let { extractPriceFromText(it) }
+            if (directPrice != null && directPrice > 0) {
+                return directPrice
+            }
+
+            val offers = jsonObject.opt("offers")
+            when (offers) {
+                is JSONObject -> {
+                    val price = offers.optString("price").takeIf { it.isNotBlank() }?.let { extractPriceFromText(it) }
+                    if (price != null && price > 0) return price
+                }
+                is JSONArray -> {
+                    for (index in 0 until offers.length()) {
+                        val offer = offers.optJSONObject(index) ?: continue
+                        val price = offer.optString("price").takeIf { it.isNotBlank() }?.let { extractPriceFromText(it) }
+                        if (price != null && price > 0) return price
+                    }
+                }
+            }
+        }
+
         return null
     }
-    
-    private fun isValidImageUrl(url: String): Boolean {
-        return url.startsWith("http") && 
-               !url.contains("1x1") && 
-               !url.contains("placeholder") &&
-               !url.contains("grey-box.png") &&
-               (url.contains("jpg") || url.contains("jpeg") || url.contains("png") || url.contains("webp"))
+
+    private fun extractPublisher(document: Document): String? {
+        return extractStringFromStructuredData(document, "publisher")
+            ?.takeIf { it.length in 2..120 }
+            ?: extractLabeledDetail(document.text(), "Publisher")
     }
-    
-    private fun convertToHttps(url: String): String {
-        val httpsUrl = if (url.startsWith("http://")) {
-            url.replace("http://", "https://")
-        } else {
-            url
+
+    private fun extractPublishedDate(document: Document): String? {
+        return extractStringFromStructuredData(document, "datePublished")
+            ?.takeIf { it.length in 4..40 }
+            ?: extractLabeledDetail(document.text(), "Publication date")
+            ?: extractLabeledDetail(document.text(), "Published")
+    }
+
+    private fun extractPages(document: Document): Int? {
+        val jsonPages = extractStringFromStructuredData(document, "numberOfPages")
+            ?.toIntOrNull()
+        if (jsonPages != null && jsonPages > 0) {
+            return jsonPages
         }
-        Log.d("BookTracker", "BarnesAndNobleParser: Converting '$url' to '$httpsUrl'")
-        return httpsUrl
+
+        return extractLabeledDetail(document.text(), "Pages")
+            ?.let { Regex("\\d+").find(it)?.value?.toIntOrNull() }
+            ?.takeIf { it > 0 }
     }
-    
-} 
+
+    private fun extractLabeledDetail(text: String, label: String): String? {
+        if (text.isBlank() || !text.contains(label, ignoreCase = true)) {
+            return null
+        }
+
+        val pattern = Regex(
+            "(?i)\\b${Regex.escape(label)}\\s*[:\\-]?\\s*([^|\\n\\r;]+?)(?=\\s{2,}|\\b(?:Publisher|Publication date|Published|Pages|ISBN|Format|Language|Product dimensions|Item weight)\\b|$)"
+        )
+        return pattern.find(text)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.trim(' ', ',', ':', '-', '|')
+            ?.takeIf { it.isNotBlank() }
+    }
+
+    private fun structuredDataObjects(document: Document): List<JSONObject> {
+        val objects = mutableListOf<JSONObject>()
+
+        for (script in document.select("script[type='application/ld+json']")) {
+            val content = script.html().trim()
+            if (content.isBlank()) {
+                continue
+            }
+
+            runCatching {
+                if (content.startsWith("[")) {
+                    val array = JSONArray(content)
+                    for (index in 0 until array.length()) {
+                        array.optJSONObject(index)?.let(objects::add)
+                    }
+                } else {
+                    objects.add(JSONObject(content))
+                }
+            }.onFailure { error ->
+                Log.d(TAG, "Could not parse JSON-LD: ${error.message}")
+            }
+        }
+
+        return objects
+    }
+
+    private fun findJsonValue(jsonObject: JSONObject, field: String): String? {
+        if (jsonObject.has(field)) {
+            when (val value = jsonObject.opt(field)) {
+                is String -> return value.jsonClean().takeIf { it.isNotBlank() }
+                is JSONArray -> {
+                    for (index in 0 until value.length()) {
+                        when (val item = value.opt(index)) {
+                            is String -> return item.jsonClean().takeIf { it.isNotBlank() }
+                            is JSONObject -> item.optString("name").jsonClean().takeIf { it.isNotBlank() }?.let { return it }
+                        }
+                    }
+                }
+                is JSONObject -> value.optString("name").jsonClean().takeIf { it.isNotBlank() }?.let { return it }
+            }
+        }
+
+        for (key in jsonObject.keys()) {
+            when (val nested = jsonObject.opt(key)) {
+                is JSONObject -> findJsonValue(nested, field)?.let { return it }
+                is JSONArray -> {
+                    for (index in 0 until nested.length()) {
+                        val item = nested.optJSONObject(index) ?: continue
+                        findJsonValue(item, field)?.let { return it }
+                    }
+                }
+            }
+        }
+
+        return null
+    }
+
+    private fun extractStringFromScripts(document: Document, field: String): String? {
+        val pattern = Regex("\"${Regex.escape(field)}\"\\s*:\\s*\"([^\"]+)\"", RegexOption.IGNORE_CASE)
+        for (script in document.select("script")) {
+            val value = pattern.find(script.html())?.groupValues?.getOrNull(1)?.jsonClean()
+            if (!value.isNullOrBlank()) {
+                return value
+            }
+        }
+        return null
+    }
+
+    private fun extractAuthorFromScripts(document: Document): String? {
+        val patterns = listOf(
+            Regex("\"author\"\\s*:\\s*\"([^\"]+)\"", RegexOption.IGNORE_CASE),
+            Regex("\"author\"\\s*:\\s*\\{[^}]*\"name\"\\s*:\\s*\"([^\"]+)\"", RegexOption.IGNORE_CASE),
+            Regex("\"authors\"\\s*:\\s*\\[\\s*\\{[^}]*\"name\"\\s*:\\s*\"([^\"]+)\"", RegexOption.IGNORE_CASE)
+        )
+
+        for (script in document.select("script")) {
+            val content = script.html()
+            for (pattern in patterns) {
+                val author = pattern.find(content)?.groupValues?.getOrNull(1)?.jsonClean()
+                if (isUsableAuthor(author)) {
+                    return author
+                }
+            }
+        }
+
+        return null
+    }
+
+    private fun String.jsonClean(): String {
+        return replace("\\/", "/")
+            .replace("\\\"", "\"")
+            .replace("\\u0026", "&")
+            .replace("&amp;", "&")
+            .trim()
+    }
+}

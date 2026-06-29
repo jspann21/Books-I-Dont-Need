@@ -13,6 +13,7 @@ object BookParserFactory {
     private val parsers = listOf(
         AmazonParser(),
         BarnesAndNobleParser(),
+        BooksAMillionParser(),
         BookOutletParser(),
         BetterWorldBooksParser(),
         WalmartParser(),

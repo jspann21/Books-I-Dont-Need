@@ -78,6 +78,7 @@ object StoreRequestStrategyFactory {
         AmazonRequestStrategy(),
         EbayRequestStrategy(),
         BarnesAndNobleRequestStrategy(),
+        BooksAMillionRequestStrategy(),
         BookOutletRequestStrategy(),
         BetterWorldBooksRequestStrategy(),
         WorldOfBooksRequestStrategy(),

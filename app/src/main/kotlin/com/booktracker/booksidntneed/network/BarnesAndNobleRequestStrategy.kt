@@ -50,7 +50,7 @@ class BarnesAndNobleRequestStrategy : StoreRequestStrategy {
             .timeout(RequestStrategyUtils.BN_READ_TIMEOUT)
             .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
             .header("Accept-Language", "en-US,en;q=0.9")
-            .header("Accept-Encoding", "gzip, deflate, br")
+            .header("Accept-Encoding", "gzip, deflate")
             .header("DNT", "1")
             .header("Connection", "keep-alive")
             .header("Upgrade-Insecure-Requests", "1")
@@ -90,7 +90,7 @@ class BarnesAndNobleRequestStrategy : StoreRequestStrategy {
 
         connection
             .header("Accept-Language", "en-US,en;q=0.9")
-            .header("Accept-Encoding", "gzip, deflate, br")
+            .header("Accept-Encoding", "gzip, deflate")
             .header("sec-ch-ua", "\"Not_A Brand\";v=\"8\", \"Chromium\";v=\"121\", \"Google Chrome\";v=\"121\"")
             .header("sec-ch-ua-mobile", "?0")
             .header("sec-ch-ua-platform", "\"Windows\"")

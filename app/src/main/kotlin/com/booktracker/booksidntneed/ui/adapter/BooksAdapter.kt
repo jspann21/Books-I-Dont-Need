@@ -25,6 +25,8 @@ import com.booktracker.booksidntneed.model.BookStore
 import com.booktracker.booksidntneed.model.BookWithStores
 import com.booktracker.booksidntneed.model.Category
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.model.GlideUrl
+import com.bumptech.glide.load.model.LazyHeaders
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.chip.Chip
 import java.text.SimpleDateFormat
@@ -41,6 +43,7 @@ class BooksAdapter(
         private const val VIEW_TYPE_FULL = 0
         private const val VIEW_TYPE_MINIMAL = 1
         private val DEFAULT_CATEGORY_COLOR = "#64748B".toColorInt()
+        private const val DESKTOP_FIREFOX_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0"
     }
     
     // Map of category names to their colors
@@ -198,6 +201,39 @@ class BooksAdapter(
         Toast.makeText(context, "$label copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 
+    private fun loadCoverImage(coverImageUrl: String?, imageView: ImageView) {
+        if (!coverImageUrl.isNullOrBlank()) {
+            Glide.with(imageView)
+                .load(buildCoverImageModel(coverImageUrl))
+                .placeholder(R.drawable.ic_book_placeholder)
+                .error(R.drawable.ic_book_placeholder)
+                .into(imageView)
+        } else {
+            imageView.setImageResource(R.drawable.ic_book_placeholder)
+        }
+    }
+
+    private fun buildCoverImageModel(coverImageUrl: String): Any {
+        if (!isBooksAMillionCoverUrl(coverImageUrl)) {
+            return coverImageUrl
+        }
+
+        return GlideUrl(
+            coverImageUrl,
+            LazyHeaders.Builder()
+                .addHeader("User-Agent", DESKTOP_FIREFOX_USER_AGENT)
+                .addHeader("Accept", "image/avif,image/webp,*/*")
+                .addHeader("Accept-Language", "en-US,en;q=0.5")
+                .addHeader("Referer", "https://www.booksamillion.com/")
+                .build()
+        )
+    }
+
+    private fun isBooksAMillionCoverUrl(url: String): Boolean {
+        return url.contains("booksamillion.com", ignoreCase = true) &&
+            url.contains("/covers/", ignoreCase = true)
+    }
+
     inner class BookViewHolder(private val binding: ItemBookCardBinding) : RecyclerView.ViewHolder(binding.root) {
         
         private var storesAdapter: StoresAdapter? = null
@@ -222,16 +258,7 @@ class BooksAdapter(
             setupIsbnInfo(book)
 
             // Load cover image
-            if (!book.coverImageUrl.isNullOrBlank()) {
-                Glide.with(binding.bookCoverImageView)
-                    .load(book.coverImageUrl)
-                    .placeholder(R.drawable.ic_book_placeholder)
-                    .error(R.drawable.ic_book_placeholder)
-                    .into(binding.bookCoverImageView)
-            } else {
-                // If no cover image URL, just show the placeholder
-                binding.bookCoverImageView.setImageResource(R.drawable.ic_book_placeholder)
-            }
+            loadCoverImage(book.coverImageUrl, binding.bookCoverImageView)
 
             // Price information
             setupPriceInfo(bookWithStores)
@@ -411,18 +438,6 @@ class BooksAdapter(
             
             // Long press listeners for copying text
             setupMinimalTextCopyListeners(bookWithStores)
-        }
-
-        private fun loadCoverImage(coverImageUrl: String?, imageView: ImageView) {
-            if (!coverImageUrl.isNullOrBlank()) {
-                Glide.with(imageView)
-                    .load(coverImageUrl)
-                    .placeholder(R.drawable.ic_book_placeholder)
-                    .error(R.drawable.ic_book_placeholder)
-                    .into(imageView)
-            } else {
-                imageView.setImageResource(R.drawable.ic_book_placeholder)
-            }
         }
 
         private fun setupMinimalPriceInfo(bookWithStores: BookWithStores) {

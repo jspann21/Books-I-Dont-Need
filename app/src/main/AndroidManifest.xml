@@ -109,6 +109,8 @@
                 <data android:scheme="https" android:host="www.barnesandnoble.com" android:pathPrefix="/" />
                 <data android:scheme="https" android:host="bn.com" android:pathPrefix="/" />
                 <data android:scheme="https" android:host="www.bn.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="booksamillion.com" android:pathPrefix="/" />
+                <data android:scheme="https" android:host="www.booksamillion.com" android:pathPrefix="/" />
                 <data android:scheme="https" android:host="bookoutlet.com" android:pathPrefix="/" />
                 <data android:scheme="https" android:host="www.bookoutlet.com" android:pathPrefix="/" />
                 <data android:scheme="https" android:host="betterworldbooks.com" android:pathPrefix="/" />
@@ -166,6 +168,8 @@
                 <data android:scheme="http" android:host="www.barnesandnoble.com" android:pathPrefix="/" />
                 <data android:scheme="http" android:host="bn.com" android:pathPrefix="/" />
                 <data android:scheme="http" android:host="www.bn.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="booksamillion.com" android:pathPrefix="/" />
+                <data android:scheme="http" android:host="www.booksamillion.com" android:pathPrefix="/" />
                 <data android:scheme="http" android:host="bookoutlet.com" android:pathPrefix="/" />
                 <data android:scheme="http" android:host="www.bookoutlet.com" android:pathPrefix="/" />
                 <data android:scheme="http" android:host="betterworldbooks.com" android:pathPrefix="/" />
