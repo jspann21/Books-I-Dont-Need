@@ -13,6 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.booktracker.booksidntneed.databinding.FragmentBookListBinding
+import com.booktracker.booksidntneed.network.AmazonRequestStrategy
 import com.booktracker.booksidntneed.ui.adapter.BooksAdapter
 import com.booktracker.booksidntneed.ui.dialog.DialogManager
 import kotlinx.coroutines.flow.collectLatest
@@ -55,7 +56,7 @@ class BookListFragment : Fragment() {
             },
             onStoreClick = { store ->
                 // Open store URL in browser if valid
-                val url = store.storeUrl
+                val url = canonicalizeStoreUrlForOpen(store.storeUrl)
                 if (url.isNotBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
                     val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                     startActivity(intent)
@@ -97,6 +98,15 @@ class BookListFragment : Fragment() {
                     v.removeOnAttachStateChangeListener(this)
                 }
             })
+        }
+    }
+
+    private fun canonicalizeStoreUrlForOpen(url: String): String {
+        val amazonStrategy = AmazonRequestStrategy()
+        return if (amazonStrategy.canHandle(url)) {
+            amazonStrategy.canonicalizeUrl(url)
+        } else {
+            url
         }
     }
 

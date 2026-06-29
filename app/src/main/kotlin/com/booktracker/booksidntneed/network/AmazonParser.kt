@@ -2,6 +2,7 @@ package com.booktracker.booksidntneed.network
 
 import android.util.Log
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import java.util.Locale
 
 class AmazonParser : BookParser {
@@ -30,6 +31,7 @@ class AmazonParser : BookParser {
             val price = extractPrice(document)
             val isbn = extractISBN(document)
             val coverImage = extractCoverImage(document)
+            val canonicalStoreUrl = AmazonRequestStrategy().canonicalizeUrl(url)
             
             Log.d("BookTracker", "AmazonParser: Extracted data - Title: '$title', Author: '$author', Price: $price, Cover: '$coverImage', ISBN-10: '${isbn.first}', ISBN-13: '${isbn.second}'")
             
@@ -43,7 +45,7 @@ class AmazonParser : BookParser {
                     isbn13 = isbn.second,
                     price = price,
                     storeName = getStoreName(),
-                    storeUrl = url,
+                    storeUrl = canonicalStoreUrl,
                     coverImageUrl = coverImage
                 )
                 
@@ -62,7 +64,7 @@ class AmazonParser : BookParser {
                     
                     // Try to enhance page title info with any extracted data we did get
                     val enhancedInfo = pageTitleInfo.copy(
-                        storeUrl = url,
+                        storeUrl = canonicalStoreUrl,
                         storeName = getStoreName(),
                         price = price, // Use extracted price if available
                         coverImageUrl = coverImage ?: pageTitleInfo.coverImageUrl // Use extracted cover if available
@@ -498,6 +500,11 @@ class AmazonParser : BookParser {
             }
         }
 
+        extractBuyingOptionPrice(document)?.let { price ->
+            Log.d("BookTracker", "AmazonParser: ✅ SUCCESS - Extracted buying-option price: $price")
+            return price
+        }
+
         // PRIORITY 1: Current/Sale price selectors (highest confidence)
         // These target Amazon's primary price display for the actual selling price
         val currentPriceSelectors = listOf(
@@ -669,9 +676,100 @@ class AmazonParser : BookParser {
         Log.w("BookTracker", "AmazonParser: ❌ FAILED - No valid current price found (may have only found list prices)")
         return 0.0
     }
+
+    private fun extractBuyingOptionPrice(document: Document): Double? {
+        val optionSelectors = listOf(
+            "#tmmSwatches li",
+            "#tmmSwatches .swatchElement",
+            "#mediaTab_heading",
+            ".mediaTab_heading",
+            "[id^=tmm-grid-swatch-]",
+            "[data-a-button-group*='tmm'] .a-button",
+            ".slot-price",
+            ".audible_mm_grid_swatch"
+        )
+
+        for (selector in optionSelectors) {
+            val elements = document.select(selector)
+            Log.d("BookTracker", "AmazonParser: Trying BUYING OPTION selector '$selector', found ${elements.size} elements")
+
+            for (element in elements) {
+                val contextText = buyingOptionContextText(element)
+                if (!looksLikeBuyingOption(contextText)) {
+                    continue
+                }
+
+                val price = extractPriceFromText(contextText)
+                if (price != null && price > 0) {
+                    Log.d("BookTracker", "AmazonParser: Found buying-option price '$price' from '$contextText'")
+                    return price
+                }
+            }
+        }
+
+        return null
+    }
+
+    private fun buyingOptionContextText(element: Element): String {
+        val candidates = sequenceOf(
+            element,
+            element.parent(),
+            element.parent()?.parent(),
+            element.parent()?.parent()?.parent()
+        ).filterNotNull()
+
+        return candidates
+            .map { it.text().replace(Regex("\\s+"), " ").trim() }
+            .firstOrNull { text ->
+                text.contains("$") && text.contains("option", ignoreCase = true) && hasBookFormat(text)
+            }
+            ?: element.text().replace(Regex("\\s+"), " ").trim()
+    }
+
+    private fun looksLikeBuyingOption(text: String): Boolean {
+        if (text.isBlank() || !text.contains("$")) {
+            return false
+        }
+
+        val lowerText = text.lowercase(Locale.ROOT)
+        val hasBuyingOptionPhrase = Regex("\\b\\d*\\s*options?\\s+from\\b").containsMatchIn(lowerText) ||
+            Regex("\\bfrom\\s+\\$").containsMatchIn(lowerText)
+        val hasBookFormat = hasBookFormat(text)
+        val excluded = listOf(
+            "list price",
+            "was:",
+            "save ",
+            "coupon",
+            "sponsored",
+            "frequently bought",
+            "customers also",
+            "related products"
+        ).any { lowerText.contains(it) }
+
+        return hasBuyingOptionPhrase && hasBookFormat && !excluded
+    }
+
+    private fun hasBookFormat(text: String): Boolean {
+        val lowerText = text.lowercase(Locale.ROOT)
+        return listOf(
+            "paperback",
+            "hardcover",
+            "spiral-bound",
+            "mass market paperback",
+            "kindle",
+            "audio",
+            "board book",
+            "textbook binding"
+        ).any { lowerText.contains(it) }
+    }
     
     private fun extractPriceFromText(priceText: String): Double? {
         return try {
+            val currencyPriceMatch = Regex("""[$£€]\s*([0-9,]+\.\d{2})""").find(priceText)
+            if (currencyPriceMatch != null) {
+                return currencyPriceMatch.groupValues[1].replace(",", "").toDoubleOrNull()
+            }
+
             // Remove currency symbols and clean the text
             val cleanPrice = priceText.replace(Regex("[^\\d.,]"), "")
                 .replace(",", "")
