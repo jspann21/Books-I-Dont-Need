@@ -20,10 +20,14 @@ import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
 import com.booktracker.booksidntneed.utils.PriceChangeEntry
 import com.booktracker.booksidntneed.utils.UpdateSummary
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 
 class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
 
@@ -81,96 +85,76 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 repository.getAllBooksForExport()
             }
 
-            val totalBooks = allBooks.size
-            var booksProcessed = 0
-            var totalChecked = 0
-            var changes = 0
-            var drops = 0
-            var increases = 0
-            val changeEntries = mutableListOf<PriceChangeEntry>()
-            var failedUpdates = 0
+            val updateTargets = allBooks.flatMap { book ->
+                book.stores
+                    .filter { store -> store.storeUrl.isNotBlank() && store.storeUrl != "Manual Entry" }
+                    .map { store -> PriceUpdateTarget(book, store) }
+            }
+            val totalStores = updateTargets.size
+            val storesProcessed = AtomicInteger(0)
+            val totalChecked = AtomicInteger(0)
+            val changes = AtomicInteger(0)
+            val drops = AtomicInteger(0)
+            val increases = AtomicInteger(0)
+            val failedUpdates = AtomicInteger(0)
+            val changeEntries = Collections.synchronizedList(mutableListOf<PriceChangeEntry>())
+            val requestLimiter = ResponsiblePriceUpdateLimiter()
 
             // Set initial foreground info with progress
-            val initialProgressText = "Starting price updates... (0 of $totalBooks)"
-            setForeground(createForegroundInfo(initialProgressText, totalProgress = totalBooks))
+            val initialProgressText = "Starting price updates... (0 of $totalStores)"
+            setForeground(createForegroundInfo(initialProgressText, totalProgress = totalStores))
 
-            for (book in allBooks) {
-                if (isStopped) {
-                    Log.d(TAG, "AutoUpdateWorker: Stopped, exiting early to save resources")
-                    return Result.success()
-                }
+            coroutineScope {
+                updateTargets.map { target ->
+                    async {
+                        val book = target.book
+                        val store = target.store
+                        if (isStopped) {
+                            Log.d(TAG, "AutoUpdateWorker: Skipping remaining work because worker stopped")
+                            return@async
+                        }
+                        totalChecked.incrementAndGet()
 
-                booksProcessed++
-                
-                // Throttle notification updates - only update every 3 books or for the last book
-                if (booksProcessed % PROGRESS_UPDATE_INTERVAL == 0 || booksProcessed == totalBooks) {
-                    val progressText = "Updating book $booksProcessed of $totalBooks: ${book.book.title}"
-                    if (canPostNotifications()) {
                         try {
-                            notificationManager.notify(
-                                AutoUpdateNotifier.NOTIF_ID_FOREGROUND,
-                                buildProgressNotification(progressText, booksProcessed, totalBooks)
-                            )
-                        } catch (e: SecurityException) {
-                            Log.e(TAG, "SecurityException when updating notification: ${e.message}")
-                        }
-                    } else if (!notificationPermissionLogged) {
-                        Log.d(TAG, "Skipping progress notification update; POST_NOTIFICATIONS permission not granted.")
-                        notificationPermissionLogged = true
-                    }
-                }
-
-                // Be kind to servers: small delay between books
-                delay(PER_BOOK_DELAY_MS)
-
-                val updatableStores = book.stores.filter { store ->
-                    store.storeUrl.isNotBlank() && store.storeUrl != "Manual Entry"
-                }
-                if (updatableStores.isEmpty()) continue
-
-                for (store in updatableStores) {
-                    if (isStopped) {
-                        Log.d(TAG, "AutoUpdateWorker: Stopped during stores loop, exiting early")
-                        return Result.success()
-                    }
-                    totalChecked++
-
-                    try {
-                        val before = store.price
-                        // Be kind to servers: delay between stores
-                        delay(PER_STORE_DELAY_MS)
-                        repository.updateSingleStorePrices(store)
-                        // Fetch updated store snapshot
-                        val updated = withContext(Dispatchers.IO) { repository.getStoreByBookIdAndStoreName(store.bookId, store.storeName) }
-                        val after = updated?.price
-                        if (before != after) {
-                            changes++
-                            if (before != null && after != null) {
-                                if (after < before) drops++ else increases++
+                            val before = store.price
+                            requestLimiter.run(store.storeUrl) {
+                                repository.updateSingleStorePrices(store)
                             }
-                            changeEntries.add(
-                                PriceChangeEntry(
-                                    bookId = book.book.id,
-                                    bookTitle = book.book.title,
-                                    storeName = store.storeName,
-                                    oldPrice = before,
-                                    newPrice = after,
-                                    timestamp = System.currentTimeMillis()
+                            // Fetch updated store snapshot
+                            val updated = withContext(Dispatchers.IO) { repository.getStoreByBookIdAndStoreName(store.bookId, store.storeName) }
+                            val after = updated?.price
+                            if (before != after) {
+                                changes.incrementAndGet()
+                                if (before != null && after != null) {
+                                    if (after < before) drops.incrementAndGet() else increases.incrementAndGet()
+                                }
+                                changeEntries.add(
+                                    PriceChangeEntry(
+                                        bookId = book.book.id,
+                                        bookTitle = book.book.title,
+                                        storeName = store.storeName,
+                                        oldPrice = before,
+                                        newPrice = after,
+                                        timestamp = System.currentTimeMillis()
+                                    )
                                 )
-                            )
+                            }
+                        } catch (e: Exception) {
+                            failedUpdates.incrementAndGet()
+                            Log.e(TAG, "Failed to update store for book '${book.book.title}' (${store.storeName}): ${e.message}")
+                        } finally {
+                            val processed = storesProcessed.incrementAndGet()
+                            updateProgressNotification(processed, totalStores, book.book.title)
                         }
-                    } catch (e: Exception) {
-                        failedUpdates++
-                        Log.e(TAG, "Failed to update store for book '${book.book.title}' (${store.storeName}): ${e.message}")
                     }
-                }
+                }.awaitAll()
             }
 
             val summary = UpdateSummary(
-                totalChecked = totalChecked,
-                changed = changes,
-                drops = drops,
-                increases = increases,
+                totalChecked = totalChecked.get(),
+                changed = changes.get(),
+                drops = drops.get(),
+                increases = increases.get(),
                 changes = changeEntries,
                 completedAt = System.currentTimeMillis()
             )
@@ -185,7 +169,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 .setPackage(applicationContext.packageName)
             applicationContext.sendBroadcast(intent)
 
-            Log.d(TAG, "AutoUpdateWorker: Completed with ${summary.changed} changes and $failedUpdates failures")
+            Log.d(TAG, "AutoUpdateWorker: Completed with ${summary.changed} changes and ${failedUpdates.get()} failures")
             Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "AutoUpdateWorker: Failed", e)
@@ -215,11 +199,35 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
         return obj.toString()
     }
 
+    private fun updateProgressNotification(storesProcessed: Int, totalStores: Int, bookTitle: String) {
+        if (storesProcessed % PROGRESS_UPDATE_INTERVAL != 0 && storesProcessed != totalStores) {
+            return
+        }
+
+        val progressText = "Updated $storesProcessed of $totalStores stores: $bookTitle"
+        if (canPostNotifications()) {
+            try {
+                notificationManager.notify(
+                    AutoUpdateNotifier.NOTIF_ID_FOREGROUND,
+                    buildProgressNotification(progressText, storesProcessed, totalStores)
+                )
+            } catch (e: SecurityException) {
+                Log.e(TAG, "SecurityException when updating notification: ${e.message}")
+            }
+        } else if (!notificationPermissionLogged) {
+            Log.d(TAG, "Skipping progress notification update; POST_NOTIFICATIONS permission not granted.")
+            notificationPermissionLogged = true
+        }
+    }
+
+    private data class PriceUpdateTarget(
+        val book: BookWithStores,
+        val store: com.booktracker.booksidntneed.model.BookStore
+    )
+
     companion object {
         private const val TAG = "AutoUpdateWorker"
-        private const val PER_BOOK_DELAY_MS = 800L  // ~0.8s between books
-        private const val PER_STORE_DELAY_MS = 1200L // ~1.2s between stores
-        private const val PROGRESS_UPDATE_INTERVAL = 3 // Update progress notification every N books
+        private const val PROGRESS_UPDATE_INTERVAL = 3 // Update progress notification every N stores
         const val ACTION_SUMMARY_READY = "com.booktracker.booksidntneed.UPDATE_SUMMARY_READY"
     }
 }
