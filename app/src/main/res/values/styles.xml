@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="ThemeOverlay.BooksIDontNeed.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="backgroundTint">?attr/colorSurface</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimAmount">0.48</item>
+        <item name="backgroundTint">@android:color/transparent</item>
         <item name="shapeAppearanceOverlay">@style/ShapeAppearance.BooksIDontNeed.Dialog</item>
     </style>
 
