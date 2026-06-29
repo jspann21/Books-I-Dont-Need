@@ -118,6 +118,11 @@
     <string name="update_complete_title">Book prices updated</string>
     <string name="update_increases_suffix"> and %1$d increase(s)</string>
     <string name="recent_price_changes_title">Recent price changes</string>
+    <string name="recent_price_changes_summary">Checked %1$d stores, %2$d changed</string>
+    <string name="price_change_price_range">%1$s -> %2$s</string>
+    <string name="price_change_new_price">Now %1$s</string>
+    <string name="price_change_delta_up">+%1$s</string>
+    <string name="price_change_delta_down">-%1$s</string>
     <string name="dismiss">Dismiss</string>
     <string name="close">Close</string>
     <string name="settings_auto_applied_hint">Changes are applied automatically</string>
