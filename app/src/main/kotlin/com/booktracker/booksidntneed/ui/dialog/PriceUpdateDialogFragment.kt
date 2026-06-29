@@ -35,6 +35,11 @@ class PriceUpdateDialogFragment : DialogFragment() {
             }
         }
     }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -141,5 +146,10 @@ class PriceUpdateDialogFragment : DialogFragment() {
         
         // Update store progress list
         storeProgressAdapter?.submitList(progressState.stores)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        DialogStyling.apply(dialog)
     }
 } 

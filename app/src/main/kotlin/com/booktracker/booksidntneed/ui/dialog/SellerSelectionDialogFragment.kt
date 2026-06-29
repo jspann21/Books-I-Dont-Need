@@ -5,7 +5,6 @@ import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import androidx.fragment.app.DialogFragment
@@ -59,7 +58,7 @@ class SellerSelectionDialogFragment : DialogFragment() {
             .setCancelable(true)
             .create()
         dialog.setOnShowListener {
-            dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.95).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+            DialogStyling.apply(dialog)
         }
         return dialog
     }

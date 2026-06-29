@@ -2,11 +2,11 @@ package com.booktracker.booksidntneed.ui.dialog
 
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
 import androidx.fragment.app.DialogFragment
 import com.booktracker.booksidntneed.R
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.widget.RadioGroup
+import com.google.android.material.button.MaterialButton
 
 class SortDialogFragment : DialogFragment() {
     
@@ -26,33 +26,37 @@ class SortDialogFragment : DialogFragment() {
     
     override fun onCreateDialog(savedInstanceState: Bundle?): android.app.Dialog {
         val currentSort = arguments?.getString(ARG_CURRENT_SORT) ?: "title"
-        
-        val sortOptions = arrayOf("Title", "Author", "Date Added", "Price")
-        val currentIndex = when (currentSort) {
-            "title" -> 0
-            "author" -> 1
-            "date" -> 2
-            "price" -> 3
-            else -> 0
+
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_sort, null)
+        val sortOptionsGroup = dialogView.findViewById<RadioGroup>(R.id.sortOptionsGroup)
+        val checkedId = when (currentSort) {
+            "title" -> R.id.sortTitle
+            "author" -> R.id.sortAuthor
+            "date" -> R.id.sortDateAdded
+            "price" -> R.id.sortPrice
+            else -> R.id.sortTitle
         }
-        
-        return MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Sort Books")
-            .setSingleChoiceItems(sortOptions, currentIndex) { _, which ->
-                val sortOption = when (which) {
-                    0 -> "title"
-                    1 -> "author"
-                    2 -> "date"
-                    3 -> "price"
-                    else -> "title"
-                }
-                onSortOptionSelected?.invoke(sortOption)
-                dismiss()
+        sortOptionsGroup.check(checkedId)
+        sortOptionsGroup.setOnCheckedChangeListener { _, id ->
+            val sortOption = when (id) {
+                R.id.sortTitle -> "title"
+                R.id.sortAuthor -> "author"
+                R.id.sortDateAdded -> "date"
+                R.id.sortPrice -> "price"
+                else -> "title"
             }
-            .setNegativeButton("Cancel") { _, _ ->
-                dismiss()
-            }
+            onSortOptionSelected?.invoke(sortOption)
+            dismiss()
+        }
+        dialogView.findViewById<MaterialButton>(R.id.cancelButton).setOnClickListener { dismiss() }
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(dialogView)
             .create()
+        dialog.setOnShowListener {
+            DialogStyling.apply(dialog)
+        }
+        return dialog
     }
     
     fun setOnSortOptionSelectedListener(listener: (String) -> Unit) {

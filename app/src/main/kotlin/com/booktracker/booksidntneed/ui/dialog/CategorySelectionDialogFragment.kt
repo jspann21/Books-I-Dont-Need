@@ -54,6 +54,11 @@ class CategorySelectionDialogFragment : DialogFragment() {
         }
     }
     
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -88,10 +93,7 @@ class CategorySelectionDialogFragment : DialogFragment() {
     
     override fun onStart() {
         super.onStart()
-        dialog?.window?.setLayout(
-            (resources.displayMetrics.widthPixels * 0.95).toInt(),
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
+        DialogStyling.apply(dialog)
     }
     
     private fun setupCategoryList(

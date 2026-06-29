@@ -6,7 +6,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.Switch
 import android.widget.TextView
 import com.google.android.material.card.MaterialCardView
 import androidx.fragment.app.DialogFragment
@@ -26,6 +25,7 @@ import kotlinx.coroutines.launch
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.google.android.material.materialswitch.MaterialSwitch
 
 class SettingsDialogFragment : DialogFragment() {
     interface SettingsDialogListener {
@@ -39,6 +39,11 @@ class SettingsDialogFragment : DialogFragment() {
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _ -> }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -63,7 +68,7 @@ class SettingsDialogFragment : DialogFragment() {
             listener?.onImportData()
             dismiss()
         }
-        val autoUpdateSwitch = view.findViewById<Switch>(R.id.autoUpdateSwitch)
+        val autoUpdateSwitch = view.findViewById<MaterialSwitch>(R.id.autoUpdateSwitch)
         val timeCard = view.findViewById<MaterialCardView>(R.id.updateTimeCard)
         val timeText = view.findViewById<TextView>(R.id.updateTimeText)
         val updateAllCard = view.findViewById<MaterialCardView>(R.id.updateAllNowCard)
@@ -235,9 +240,6 @@ class SettingsDialogFragment : DialogFragment() {
 
     override fun onStart() {
         super.onStart()
-        dialog?.window?.setLayout(
-            (resources.displayMetrics.widthPixels * 0.95).toInt(),
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
+        DialogStyling.apply(dialog)
     }
 } 

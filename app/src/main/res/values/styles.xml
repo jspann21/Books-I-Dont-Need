@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="ThemeOverlay.BooksIDontNeed.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="backgroundTint">?attr/colorSurface</item>
+        <item name="shapeAppearanceOverlay">@style/ShapeAppearance.BooksIDontNeed.Dialog</item>
+    </style>
+
+    <style name="ShapeAppearance.BooksIDontNeed.Dialog" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">28dp</item>
+    </style>
+</resources>

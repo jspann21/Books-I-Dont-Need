@@ -18,6 +18,11 @@ class RecentPriceChangesDialogFragment : DialogFragment() {
 
     // Use lifecycleScope to avoid leaking a custom scope
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -95,6 +100,11 @@ class RecentPriceChangesDialogFragment : DialogFragment() {
             viewLifecycleOwner.lifecycleScope.launch { AutoUpdatePreferences.setRecentChangesJson(requireContext(), null) }
             dismiss()
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        DialogStyling.apply(dialog)
     }
 
     companion object {

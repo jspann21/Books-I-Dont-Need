@@ -3,7 +3,6 @@ package com.booktracker.booksidntneed.ui.dialog
 import android.app.Dialog
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.os.BundleCompat
 import androidx.fragment.app.DialogFragment
@@ -83,7 +82,7 @@ class BookOptionsDialogFragment : DialogFragment() {
             .setCancelable(true)
             .create()
         dialog.setOnShowListener {
-            dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.95).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
+            DialogStyling.apply(dialog)
         }
         return dialog
     }

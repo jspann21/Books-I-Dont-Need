@@ -64,6 +64,7 @@
         <!-- Material 3 Expressive enhancements -->
         <item name="elevationOverlayEnabled">true</item>
         <item name="elevationOverlayAccentColor">?attr/colorPrimary</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.BooksIDontNeed.Dialog</item>
     </style>
 
     <!-- Material 3 Expressive Dark Theme - Android 16 2025 -->

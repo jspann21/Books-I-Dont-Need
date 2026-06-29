@@ -7,7 +7,8 @@
     android:paddingEnd="24dp"
     android:paddingTop="24dp"
     android:paddingBottom="16dp"
-    android:background="?attr/colorSurface">
+    android:background="@drawable/dialog_surface_background"
+    android:clipToOutline="true">
 
     <TextView
         android:id="@+id/dialogTitle"
@@ -41,5 +42,4 @@
     </LinearLayout>
 
 </LinearLayout>
-
 

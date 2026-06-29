@@ -62,8 +62,7 @@
                 android:layout_weight="1"
                 android:text="Category Name"
                 android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
-                android:textColor="?attr/colorOnSurface"
-                android:textStyle="bold" />
+                android:textColor="?attr/colorOnSurface" />
 
             <TextView
                 android:id="@+id/defaultBadge"
