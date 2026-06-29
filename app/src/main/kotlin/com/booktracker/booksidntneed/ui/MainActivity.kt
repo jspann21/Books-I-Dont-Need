@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Build
@@ -96,25 +95,6 @@ class MainActivity : AppCompatActivity(),
         uri?.let { handleImportFile(it) }
     }
 
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            // Permission is granted. Continue the action or workflow in your app.
-        } else {
-            // Explain to the user that the feature is unavailable because the
-            // feature requires a permission that the user has denied. At the
-            // same time, respect the user's decision. Don't link to system
-            // settings in an effort to convince the user to change their
-            // decision.
-            Toast.makeText(
-                this,
-                "Notifications permission denied. Price update notifications will not be shown.",
-                Toast.LENGTH_LONG
-            ).show()
-        }
-    }
-    
     // Material 3 Expressive motion springs and haptics
     private lateinit var vibrator: Vibrator
     private val springAnimations = mutableListOf<SpringAnimation>()
@@ -189,7 +169,6 @@ class MainActivity : AppCompatActivity(),
         maybeShowRecentPriceChanges()
         registerUpdateReceiver()
         handleIncomingIntent(intent)
-        requestNotificationPermission()
     }
 
     private var updateReceiver: BroadcastReceiver? = null
@@ -221,32 +200,6 @@ class MainActivity : AppCompatActivity(),
     private fun unregisterUpdateReceiver() {
         try { updateReceiver?.let { unregisterReceiver(it) } } catch (_: Exception) {}
         updateReceiver = null
-    }
-
-    private fun requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            when {
-                ContextCompat.checkSelfPermission(
-                    this,
-                    android.Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED -> {
-                    // You can use the API that requires the permission.
-                }
-                shouldShowRequestPermissionRationale(android.Manifest.permission.POST_NOTIFICATIONS) -> {
-                    // In an educational UI, explain to the user why your app requires this
-                    // permission for a specific feature to behave as expected, and what
-                    // features are disabled if it's declined. In this UI, include a
-                    // "cancel" or "no thanks" button that lets the user continue
-                    // using your app without granting the permission.
-                    // showInContextUI(...)
-                    permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                }
-                else -> {
-                    // You can directly ask for the permission.
-                    permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                }
-            }
-        }
     }
 
     private fun maybeShowRecentPriceChanges() {

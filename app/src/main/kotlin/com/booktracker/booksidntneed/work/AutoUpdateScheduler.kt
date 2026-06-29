@@ -2,6 +2,7 @@ package com.booktracker.booksidntneed.work
 
 import android.content.Context
 import android.util.Log
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -17,6 +18,9 @@ object AutoUpdateScheduler {
     private const val UNIQUE_ONE_TIME_NAME = "daily_price_update_one_time"
     const val UNIQUE_MANUAL_WORK_NAME = "manual_price_update"
     private const val IMMEDIATE_THRESHOLD_MINUTES = 20L
+    private const val PERIODIC_REPEAT_HOURS = 24L
+    private const val PERIODIC_FLEX_MINUTES = 15L
+    private const val RETRY_BACKOFF_MINUTES = 30L
 
     /**
      * Schedule a daily worker at the specified local time (minutes since midnight).
@@ -44,9 +48,7 @@ object AutoUpdateScheduler {
             "Scheduling daily update: minutes=$minutesSinceMidnight (HH=${minutesSinceMidnight/60}, mm=${minutesSinceMidnight%60}), now=${now.time}, nextRun=${target.time}, initialDelayMs=$initialDelayMs"
         )
 
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
+        val constraints = automaticUpdateConstraints()
 
         val wm = WorkManager.getInstance(context)
 
@@ -59,6 +61,7 @@ object AutoUpdateScheduler {
             val oneTime = OneTimeWorkRequestBuilder<AutoUpdateWorker>()
                 .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
                 .setConstraints(constraints)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_BACKOFF_MINUTES, TimeUnit.MINUTES)
                 .build()
             wm.enqueueUniqueWork(
                 UNIQUE_ONE_TIME_NAME,
@@ -70,20 +73,38 @@ object AutoUpdateScheduler {
         }
 
         // Use a small flex so execution happens close to the chosen clock time
-        val flexMinutes = 15L
         val periodicInitialDelayMs = if (enqueueImmediate) initialDelayMs + TimeUnit.DAYS.toMillis(1) else initialDelayMs
-        val request = PeriodicWorkRequestBuilder<AutoUpdateWorker>(24, TimeUnit.HOURS, flexMinutes, TimeUnit.MINUTES)
+        val request = PeriodicWorkRequestBuilder<AutoUpdateWorker>(
+            PERIODIC_REPEAT_HOURS,
+            TimeUnit.HOURS,
+            PERIODIC_FLEX_MINUTES,
+            TimeUnit.MINUTES
+        )
             .setInitialDelay(periodicInitialDelayMs, TimeUnit.MILLISECONDS)
             .setConstraints(constraints)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_BACKOFF_MINUTES, TimeUnit.MINUTES)
             .build()
 
         Log.d(
             "AutoUpdateScheduler",
-            "Enqueuing periodic update with initialDelayMs=$periodicInitialDelayMs, flexMinutes=$flexMinutes, policy=$policy"
+            "Enqueuing periodic update with initialDelayMs=$periodicInitialDelayMs, flexMinutes=$PERIODIC_FLEX_MINUTES, policy=$policy"
         )
         wm.enqueueUniquePeriodicWork(
             UNIQUE_WORK_NAME,
             policy,
+            request
+        )
+    }
+
+    fun enqueueManual(context: Context) {
+        val request = OneTimeWorkRequestBuilder<AutoUpdateWorker>()
+            .setConstraints(manualUpdateConstraints())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_BACKOFF_MINUTES, TimeUnit.MINUTES)
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            UNIQUE_MANUAL_WORK_NAME,
+            ExistingWorkPolicy.KEEP,
             request
         )
     }
@@ -97,5 +118,18 @@ object AutoUpdateScheduler {
     fun cancelManual(context: Context) {
         val wm = WorkManager.getInstance(context)
         wm.cancelUniqueWork(UNIQUE_MANUAL_WORK_NAME)
+    }
+
+    private fun automaticUpdateConstraints(): Constraints {
+        return Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
+            .build()
+    }
+
+    private fun manualUpdateConstraints(): Constraints {
+        return Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
     }
 }

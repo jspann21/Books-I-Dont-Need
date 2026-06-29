@@ -83,13 +83,7 @@ class SettingsDialogFragment : DialogFragment() {
                 updatePriceAndTimeCardState(isChecked, timeCard, timeText)
                 val minutes = AutoUpdatePreferences.timeMinutes(requireContext()).first()
                 if (isChecked) {
-                    // Best effort: request POST_NOTIFICATIONS on Android 13+
-                    if (android.os.Build.VERSION.SDK_INT >= 33) {
-                        val permission = android.Manifest.permission.POST_NOTIFICATIONS
-                        if (ContextCompat.checkSelfPermission(requireContext(), permission) != PackageManager.PERMISSION_GRANTED) {
-                            notificationPermissionLauncher.launch(permission)
-                        }
-                    }
+                    requestNotificationPermissionIfNeeded()
                     AutoUpdateScheduler.scheduleDaily(
                         requireContext(),
                         minutes,
@@ -171,20 +165,8 @@ class SettingsDialogFragment : DialogFragment() {
                 return@launch
             }
             
-            // Enqueue new manual update
-            val request = androidx.work.OneTimeWorkRequestBuilder<com.booktracker.booksidntneed.work.AutoUpdateWorker>()
-                .setConstraints(
-                    androidx.work.Constraints.Builder()
-                        .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
-                        .build()
-                )
-                .build()
-            
-            workManager.enqueueUniqueWork(
-                AutoUpdateScheduler.UNIQUE_MANUAL_WORK_NAME,
-                androidx.work.ExistingWorkPolicy.KEEP,
-                request
-            )
+            requestNotificationPermissionIfNeeded()
+            AutoUpdateScheduler.enqueueManual(requireContext())
 
             dismiss()
         }
@@ -203,6 +185,15 @@ class SettingsDialogFragment : DialogFragment() {
     override fun onDetach() {
         super.onDetach()
         listener = null
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (android.os.Build.VERSION.SDK_INT < 33) return
+
+        val permission = android.Manifest.permission.POST_NOTIFICATIONS
+        if (ContextCompat.checkSelfPermission(requireContext(), permission) != PackageManager.PERMISSION_GRANTED) {
+            notificationPermissionLauncher.launch(permission)
+        }
     }
 
     private fun formatMinutes(minutes: Int): String {
