@@ -20,6 +20,7 @@ object BookParserFactory {
         GoogleBooksParser(),
         ChristianBookParser(),
         BiblestoreParser(),
+        BiblioParser(),
         AbeBooksParser(),
         EbayParser(),
         ThriftBooksParser(),

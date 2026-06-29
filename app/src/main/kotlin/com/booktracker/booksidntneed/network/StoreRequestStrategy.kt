@@ -81,6 +81,7 @@ object StoreRequestStrategyFactory {
         BookOutletRequestStrategy(),
         BetterWorldBooksRequestStrategy(),
         WorldOfBooksRequestStrategy(),
+        BiblioRequestStrategy(),
         WalmartRequestStrategy(),
         DefaultRequestStrategy()
     )
