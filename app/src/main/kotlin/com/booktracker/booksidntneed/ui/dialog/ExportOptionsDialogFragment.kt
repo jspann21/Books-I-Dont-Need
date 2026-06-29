@@ -1,12 +1,11 @@
 package com.booktracker.booksidntneed.ui.dialog
 
-import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
-import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import com.booktracker.booksidntneed.R
 
@@ -29,31 +28,39 @@ class ExportOptionsDialogFragment : DialogFragment() {
         }
     }
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val inflater = LayoutInflater.from(context)
-        val view = inflater.inflate(R.layout.dialog_export_complete, null)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
 
-        val saveButton = view.findViewById<View>(R.id.saveButton) as Button
-        val shareButton = view.findViewById<View>(R.id.shareButton) as Button
-        val cancelButton = view.findViewById<View>(R.id.cancelButton) as Button
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.dialog_export_complete, container, false)
+    }
 
-        saveButton.setOnClickListener {
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        view.findViewById<Button>(R.id.saveButton).setOnClickListener {
             listener?.onSaveToDevice()
             dismiss()
         }
-        shareButton.setOnClickListener {
+        view.findViewById<Button>(R.id.shareButton).setOnClickListener {
             listener?.onShare()
             dismiss()
         }
-        cancelButton.setOnClickListener {
+        view.findViewById<Button>(R.id.cancelButton).setOnClickListener {
             listener?.onCancel()
             dismiss()
         }
+    }
 
-        return AlertDialog.Builder(requireContext())
-            .setView(view)
-            .setCancelable(true)
-            .create()
+    override fun onStart() {
+        super.onStart()
+        DialogStyling.apply(dialog)
     }
 
     override fun onDetach() {
