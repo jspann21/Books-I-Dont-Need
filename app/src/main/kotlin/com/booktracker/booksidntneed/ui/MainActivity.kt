@@ -38,6 +38,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.booktracker.booksidntneed.BookTrackerApplication
 import com.booktracker.booksidntneed.R
 import com.booktracker.booksidntneed.databinding.ActivityMainBinding
@@ -57,6 +59,7 @@ import com.booktracker.booksidntneed.ui.dialog.SimpleListDialogFragment
 import com.booktracker.booksidntneed.ui.dialog.SortDialogFragment
 import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
 import com.booktracker.booksidntneed.utils.DataExportService
+import com.booktracker.booksidntneed.work.AutoUpdateScheduler
 import com.booktracker.booksidntneed.work.AutoUpdateWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -359,6 +362,8 @@ class MainActivity : AppCompatActivity(),
     }
     
     private fun setupObservers() {
+        observeManualPriceUpdateProgress()
+
         // Observe modern loading state
         viewModel.loadingState.observe(this) { loadingState ->
             updateAddButtonState(loadingState)
@@ -496,6 +501,48 @@ class MainActivity : AppCompatActivity(),
         viewModel.selectedCategory.observe(this) { selectedCategory ->
             updateFilterButtonAppearance(selectedCategory)
         }
+    }
+
+    private fun observeManualPriceUpdateProgress() {
+        WorkManager.getInstance(this)
+            .getWorkInfosForUniqueWorkLiveData(AutoUpdateScheduler.UNIQUE_MANUAL_WORK_NAME)
+            .observe(this) { workInfos ->
+                val activeWork = workInfos.firstOrNull { workInfo ->
+                    workInfo.state == WorkInfo.State.ENQUEUED ||
+                        workInfo.state == WorkInfo.State.RUNNING ||
+                        workInfo.state == WorkInfo.State.BLOCKED
+                }
+
+                if (activeWork == null) {
+                    hideFullPriceUpdateProgress()
+                    return@observe
+                }
+
+                val current = activeWork.progress.getInt(AutoUpdateWorker.KEY_PROGRESS_CURRENT, 0)
+                val total = activeWork.progress.getInt(AutoUpdateWorker.KEY_PROGRESS_TOTAL, 0)
+                showFullPriceUpdateProgress(current, total)
+            }
+    }
+
+    private fun showFullPriceUpdateProgress(current: Int, total: Int) {
+        binding.fullPriceUpdateProgressContainer.visibility = View.VISIBLE
+        binding.fullPriceUpdateProgressTitle.text = getString(R.string.full_price_update_progress_title)
+
+        if (total > 0) {
+            binding.fullPriceUpdateProgressCount.text = "$current/$total"
+            binding.fullPriceUpdateProgressBar.isIndeterminate = false
+            binding.fullPriceUpdateProgressBar.max = total
+            binding.fullPriceUpdateProgressBar.progress = current.coerceIn(0, total)
+        } else {
+            binding.fullPriceUpdateProgressCount.text = ""
+            binding.fullPriceUpdateProgressBar.isIndeterminate = true
+        }
+    }
+
+    private fun hideFullPriceUpdateProgress() {
+        binding.fullPriceUpdateProgressContainer.visibility = View.GONE
+        binding.fullPriceUpdateProgressBar.isIndeterminate = true
+        binding.fullPriceUpdateProgressCount.text = ""
     }
     
     private fun handleIncomingIntent(intent: Intent) {

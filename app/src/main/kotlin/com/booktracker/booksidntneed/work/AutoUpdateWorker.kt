@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.booktracker.booksidntneed.BookTrackerApplication
 import com.booktracker.booksidntneed.model.BookWithStores
 import com.booktracker.booksidntneed.repository.BookRepository
@@ -103,6 +104,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             // Set initial foreground info with progress
             val initialProgressText = "Starting price updates... (0 of $totalStores)"
             setForeground(createForegroundInfo(initialProgressText, totalProgress = totalStores))
+            setProgressData(0, totalStores, initialProgressText)
 
             coroutineScope {
                 updateTargets.map { target ->
@@ -144,7 +146,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                             Log.e(TAG, "Failed to update store for book '${book.book.title}' (${store.storeName}): ${e.message}")
                         } finally {
                             val processed = storesProcessed.incrementAndGet()
-                            updateProgressNotification(processed, totalStores, book.book.title)
+                            updateProgress(processed, totalStores, book.book.title)
                         }
                     }
                 }.awaitAll()
@@ -199,12 +201,14 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
         return obj.toString()
     }
 
-    private fun updateProgressNotification(storesProcessed: Int, totalStores: Int, bookTitle: String) {
+    private suspend fun updateProgress(storesProcessed: Int, totalStores: Int, bookTitle: String) {
+        val progressText = "Updated $storesProcessed of $totalStores stores: $bookTitle"
+        setProgressData(storesProcessed, totalStores, progressText)
+
         if (storesProcessed % PROGRESS_UPDATE_INTERVAL != 0 && storesProcessed != totalStores) {
             return
         }
 
-        val progressText = "Updated $storesProcessed of $totalStores stores: $bookTitle"
         if (canPostNotifications()) {
             try {
                 notificationManager.notify(
@@ -220,6 +224,16 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
         }
     }
 
+    private suspend fun setProgressData(storesProcessed: Int, totalStores: Int, progressText: String) {
+        setProgress(
+            workDataOf(
+                KEY_PROGRESS_CURRENT to storesProcessed,
+                KEY_PROGRESS_TOTAL to totalStores,
+                KEY_PROGRESS_TEXT to progressText
+            )
+        )
+    }
+
     private data class PriceUpdateTarget(
         val book: BookWithStores,
         val store: com.booktracker.booksidntneed.model.BookStore
@@ -228,6 +242,9 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
     companion object {
         private const val TAG = "AutoUpdateWorker"
         private const val PROGRESS_UPDATE_INTERVAL = 3 // Update progress notification every N stores
+        const val KEY_PROGRESS_CURRENT = "progress_current"
+        const val KEY_PROGRESS_TOTAL = "progress_total"
+        const val KEY_PROGRESS_TEXT = "progress_text"
         const val ACTION_SUMMARY_READY = "com.booktracker.booksidntneed.UPDATE_SUMMARY_READY"
     }
 }

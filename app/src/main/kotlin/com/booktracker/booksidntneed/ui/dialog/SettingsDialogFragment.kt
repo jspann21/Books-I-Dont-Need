@@ -201,15 +201,8 @@ class SettingsDialogFragment : DialogFragment() {
                 androidx.work.ExistingWorkPolicy.KEEP,
                 request
             )
-            
-            // Inform user about notification
-            try {
-                com.google.android.material.snackbar.Snackbar.make(
-                    requireView(),
-                    getString(R.string.update_all_now_desc),
-                    com.google.android.material.snackbar.Snackbar.LENGTH_LONG
-                ).show()
-            } catch (_: Exception) { }
+
+            dismiss()
         }
     }
 
