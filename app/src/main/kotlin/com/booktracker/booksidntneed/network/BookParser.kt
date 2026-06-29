@@ -15,6 +15,7 @@ object BookParserFactory {
         BarnesAndNobleParser(),
         BookOutletParser(),
         BetterWorldBooksParser(),
+        WalmartParser(),
         CrosswayParser(),
         GoogleBooksParser(),
         ChristianBookParser(),
