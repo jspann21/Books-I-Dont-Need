@@ -503,7 +503,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 _detailedStatus.value = DetailedStatus("Checking for existing books...")
                 
                 _loadingState.value = LoadingState.SAVING_TO_DATABASE
-                _detailedStatus.value = DetailedStatus("Saving to library...")
+                _detailedStatus.value = DetailedStatus("Saving to library")
                 
                 when (val result = repository.addBookFromUrl(url, selectedCategory)) {
                     is BookRepository.BookAddResult.Created -> {
@@ -599,7 +599,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 _detailedStatus.value = DetailedStatus("Checking for existing books...")
                 
                 _loadingState.value = LoadingState.SAVING_TO_DATABASE
-                _detailedStatus.value = DetailedStatus("Saving to library...")
+                _detailedStatus.value = DetailedStatus("Saving to library")
                 
                 when (val result = repository.addBookManually(
                     title = title,

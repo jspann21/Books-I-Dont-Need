@@ -1,5 +1,7 @@
 package com.booktracker.booksidntneed.ui
 
+import android.text.SpannableString
+import android.text.style.TypefaceSpan
 import android.view.View
 import android.widget.TextView
 import androidx.dynamicanimation.animation.DynamicAnimation
@@ -8,6 +10,28 @@ import androidx.dynamicanimation.animation.SpringForce
 
 // Material 3 Expressive spring constants
 private const val SPRING_DAMPING_RATIO = SpringForce.DAMPING_RATIO_LOW_BOUNCY
+
+const val SAVING_TO_LIBRARY_BASE = "Saving to library"
+const val SAVING_TO_LIBRARY_DOT_SLOTS = 3
+const val SAVING_TO_LIBRARY_DOT_INTERVAL_MS = 400L
+
+fun isSavingToLibraryStatus(text: String): Boolean =
+    text.startsWith(SAVING_TO_LIBRARY_BASE, ignoreCase = true)
+
+/** Sets "Saving to library" with [dotCount] visible dots (0–3) in a fixed-width suffix. */
+fun TextView.setSavingToLibraryDots(dotCount: Int) {
+    val clampedCount = dotCount.coerceIn(0, SAVING_TO_LIBRARY_DOT_SLOTS)
+    val dots = ".".repeat(clampedCount).padEnd(SAVING_TO_LIBRARY_DOT_SLOTS, ' ')
+    val fullText = SAVING_TO_LIBRARY_BASE + dots
+    val spannable = SpannableString(fullText)
+    spannable.setSpan(
+        TypefaceSpan("monospace"),
+        SAVING_TO_LIBRARY_BASE.length,
+        fullText.length,
+        SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE
+    )
+    text = spannable
+}
 
 /**
  * Animates a quick press effect on the view using spring physics.

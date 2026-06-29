@@ -29,7 +29,9 @@ import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import androidx.fragment.app.commit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
@@ -57,8 +59,11 @@ import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
 import com.booktracker.booksidntneed.utils.DataExportService
 import com.booktracker.booksidntneed.work.AutoUpdateWorker
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -73,6 +78,7 @@ class MainActivity : AppCompatActivity(),
     
     private lateinit var binding: ActivityMainBinding
     private lateinit var dataExportService: DataExportService
+    private var savingToLibraryDotsJob: Job? = null
     
     // Activity result launchers for file operations
     private val exportLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -597,6 +603,7 @@ class MainActivity : AppCompatActivity(),
                 binding.inputBarView.addBookButton.backgroundTintList = getTint(R.color.colorPrimary)
                 binding.inputBarView.addBookButton.setImageResource(R.drawable.ic_add)
                 binding.inputBarView.addBookButton.isEnabled = true
+                stopSavingToLibraryDotsAnimation()
                 animateStatusTextChange(binding.inputBarView.addBookStatusText, "", false)
             }
             MainViewModel.LoadingState.ANALYZING_URL -> {
@@ -653,12 +660,48 @@ class MainActivity : AppCompatActivity(),
     }
     
     private fun updateDetailedStatus(detailedStatus: MainViewModel.DetailedStatus?) {
+        val statusText = binding.inputBarView.addBookStatusText
         if (detailedStatus == null) {
-            animateStatusTextChange(binding.inputBarView.addBookStatusText, "", false)
+            stopSavingToLibraryDotsAnimation()
+            animateStatusTextChange(statusText, "", false)
         } else {
-            val statusText = detailedStatus.subMessage ?: detailedStatus.message
-            animateStatusTextChange(binding.inputBarView.addBookStatusText, statusText, true)
+            val message = detailedStatus.subMessage ?: detailedStatus.message
+            if (isSavingToLibraryStatus(message)) {
+                startSavingToLibraryDotsAnimation(statusText)
+            } else {
+                stopSavingToLibraryDotsAnimation()
+                animateStatusTextChange(statusText, message, true)
+            }
         }
+    }
+
+    private fun startSavingToLibraryDotsAnimation(statusText: TextView) {
+        if (savingToLibraryDotsJob?.isActive == true) return
+
+        val needsFadeIn = statusText.visibility != View.VISIBLE
+        statusText.setSavingToLibraryDots(0)
+        if (needsFadeIn) {
+            statusText.visibility = View.VISIBLE
+            statusText.alpha = 0f
+            SpringAnimation(statusText, DynamicAnimation.ALPHA, 1f).apply {
+                spring.stiffness = SpringForce.STIFFNESS_MEDIUM
+                spring.dampingRatio = SpringForce.DAMPING_RATIO_LOW_BOUNCY
+            }.start()
+        }
+
+        savingToLibraryDotsJob = lifecycleScope.launch {
+            var dotCount = 0
+            while (isActive) {
+                delay(SAVING_TO_LIBRARY_DOT_INTERVAL_MS)
+                dotCount = (dotCount + 1) % (SAVING_TO_LIBRARY_DOT_SLOTS + 1)
+                statusText.setSavingToLibraryDots(dotCount)
+            }
+        }
+    }
+
+    private fun stopSavingToLibraryDotsAnimation() {
+        savingToLibraryDotsJob?.cancel()
+        savingToLibraryDotsJob = null
     }
     
     /**
