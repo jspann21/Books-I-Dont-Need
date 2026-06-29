@@ -1,8 +1,9 @@
 package com.booktracker.booksidntneed.ui.dialog
 
-import android.app.Dialog
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.os.BundleCompat
 import androidx.fragment.app.DialogFragment
@@ -10,17 +11,30 @@ import androidx.fragment.app.activityViewModels
 import com.booktracker.booksidntneed.R
 import com.booktracker.booksidntneed.model.Category
 import com.booktracker.booksidntneed.ui.MainViewModel
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class CategoryOptionsDialogFragment : DialogFragment(), EditCategoryDialogFragment.Listener {
     private val viewModel: MainViewModel by activityViewModels()
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_category_options, null)
-        val dialogTitle = dialogView.findViewById<TextView>(R.id.dialogTitle)
-        val editCategoryCard = dialogView.findViewById<com.google.android.material.card.MaterialCardView>(R.id.editCategoryCard)
-        val deleteCategoryCard = dialogView.findViewById<com.google.android.material.card.MaterialCardView>(R.id.deleteCategoryCard)
-        val cancelButton = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.cancelButton)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.dialog_category_options, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        val dialogTitle = view.findViewById<TextView>(R.id.dialogTitle)
+        val editCategoryCard = view.findViewById<com.google.android.material.card.MaterialCardView>(R.id.editCategoryCard)
+        val deleteCategoryCard = view.findViewById<com.google.android.material.card.MaterialCardView>(R.id.deleteCategoryCard)
+        val cancelButton = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.cancelButton)
 
         val args = requireArguments()
         val category = BundleCompat.getParcelable(args, "category", Category::class.java)!!
@@ -39,15 +53,11 @@ class CategoryOptionsDialogFragment : DialogFragment(), EditCategoryDialogFragme
         cancelButton.setOnClickListener {
             dismiss()
         }
+    }
 
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogView)
-            .setCancelable(true)
-            .create()
-        dialog.setOnShowListener {
-            DialogStyling.apply(dialog)
-        }
-        return dialog
+    override fun onStart() {
+        super.onStart()
+        DialogStyling.apply(dialog)
     }
 
     override fun onEditCategoryConfirmed(category: Category, newName: String, newColor: String) {

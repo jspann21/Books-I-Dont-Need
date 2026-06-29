@@ -1,10 +1,9 @@
 package com.booktracker.booksidntneed.ui.dialog
 
-import android.app.Dialog
-import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import androidx.fragment.app.DialogFragment
@@ -14,19 +13,32 @@ import com.booktracker.booksidntneed.model.Book
 import com.booktracker.booksidntneed.model.BookStore
 import com.booktracker.booksidntneed.model.BookWithStores
 import com.booktracker.booksidntneed.ui.MainViewModel
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.core.os.BundleCompat
 
 class StoreEditDialogFragment : DialogFragment() {
     private val viewModel: MainViewModel by activityViewModels()
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_store_options, null)
-        val dialogTitle = dialogView.findViewById<TextView>(R.id.dialogTitle)
-        val dialogSubtitle = dialogView.findViewById<TextView>(R.id.dialogSubtitle)
-        val editButton = dialogView.findViewById<Button>(R.id.editBookButton)
-        val deleteButton = dialogView.findViewById<Button>(R.id.deleteStoreButton)
-        val cancelButton = dialogView.findViewById<Button>(R.id.cancelButton)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.dialog_store_options, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        val dialogTitle = view.findViewById<TextView>(R.id.dialogTitle)
+        val dialogSubtitle = view.findViewById<TextView>(R.id.dialogSubtitle)
+        val editButton = view.findViewById<Button>(R.id.editBookButton)
+        val deleteButton = view.findViewById<Button>(R.id.deleteStoreButton)
+        val cancelButton = view.findViewById<Button>(R.id.cancelButton)
 
         val args = requireArguments()
         val book = BundleCompat.getParcelable(args, "book", Book::class.java)!!
@@ -59,15 +71,11 @@ class StoreEditDialogFragment : DialogFragment() {
         cancelButton.setOnClickListener {
             dismiss()
         }
+    }
 
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogView)
-            .setCancelable(true)
-            .create()
-        dialog.setOnShowListener {
-            DialogStyling.apply(dialog)
-        }
-        return dialog
+    override fun onStart() {
+        super.onStart()
+        DialogStyling.apply(dialog)
     }
 
     companion object {

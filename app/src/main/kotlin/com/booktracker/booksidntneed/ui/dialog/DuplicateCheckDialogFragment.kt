@@ -1,8 +1,9 @@
 package com.booktracker.booksidntneed.ui.dialog
 
-import android.app.Dialog
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import androidx.core.os.BundleCompat
@@ -11,25 +12,38 @@ import androidx.fragment.app.activityViewModels
 import com.booktracker.booksidntneed.R
 import com.booktracker.booksidntneed.repository.BookRepository
 import com.booktracker.booksidntneed.ui.MainViewModel
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class DuplicateCheckDialogFragment : DialogFragment() {
     private val viewModel: MainViewModel by activityViewModels()
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_duplicate_check, null)
-        val existingTitleText = dialogView.findViewById<TextView>(R.id.existingTitleText)
-        val existingAuthorText = dialogView.findViewById<TextView>(R.id.existingAuthorText)
-        val existingIsbnText = dialogView.findViewById<TextView>(R.id.existingIsbnText)
-        val existingStoresText = dialogView.findViewById<TextView>(R.id.existingStoresText)
-        val newTitleText = dialogView.findViewById<TextView>(R.id.newTitleText)
-        val newAuthorText = dialogView.findViewById<TextView>(R.id.newAuthorText)
-        val newIsbnText = dialogView.findViewById<TextView>(R.id.newIsbnText)
-        val newStoreText = dialogView.findViewById<TextView>(R.id.newStoreText)
-        val newPriceText = dialogView.findViewById<TextView>(R.id.newPriceText)
-        val sameBookButton = dialogView.findViewById<Button>(R.id.sameBookButton)
-        val differentBookButton = dialogView.findViewById<Button>(R.id.differentBookButton)
-        val cancelButton = dialogView.findViewById<Button>(R.id.cancelDuplicateButton)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.dialog_duplicate_check, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        val existingTitleText = view.findViewById<TextView>(R.id.existingTitleText)
+        val existingAuthorText = view.findViewById<TextView>(R.id.existingAuthorText)
+        val existingIsbnText = view.findViewById<TextView>(R.id.existingIsbnText)
+        val existingStoresText = view.findViewById<TextView>(R.id.existingStoresText)
+        val newTitleText = view.findViewById<TextView>(R.id.newTitleText)
+        val newAuthorText = view.findViewById<TextView>(R.id.newAuthorText)
+        val newIsbnText = view.findViewById<TextView>(R.id.newIsbnText)
+        val newStoreText = view.findViewById<TextView>(R.id.newStoreText)
+        val newPriceText = view.findViewById<TextView>(R.id.newPriceText)
+        val sameBookButton = view.findViewById<Button>(R.id.sameBookButton)
+        val differentBookButton = view.findViewById<Button>(R.id.differentBookButton)
+        val cancelButton = view.findViewById<Button>(R.id.cancelDuplicateButton)
 
         val args = requireArguments()
         val duplicateResult = BundleCompat.getSerializable(
@@ -83,15 +97,11 @@ class DuplicateCheckDialogFragment : DialogFragment() {
         cancelButton.setOnClickListener {
             dismiss()
         }
+    }
 
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogView)
-            .setCancelable(true)
-            .create()
-        dialog.setOnShowListener {
-            DialogStyling.apply(dialog)
-        }
-        return dialog
+    override fun onStart() {
+        super.onStart()
+        DialogStyling.apply(dialog)
     }
 
     companion object {

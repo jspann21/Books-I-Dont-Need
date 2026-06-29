@@ -2,9 +2,10 @@ package com.booktracker.booksidntneed.ui.dialog
 
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import androidx.fragment.app.DialogFragment
 import com.booktracker.booksidntneed.R
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.widget.RadioGroup
 import com.google.android.material.button.MaterialButton
 
@@ -23,12 +24,26 @@ class SortDialogFragment : DialogFragment() {
             }
         }
     }
-    
-    override fun onCreateDialog(savedInstanceState: Bundle?): android.app.Dialog {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.dialog_sort, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
         val currentSort = arguments?.getString(ARG_CURRENT_SORT) ?: "title"
 
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_sort, null)
-        val sortOptionsGroup = dialogView.findViewById<RadioGroup>(R.id.sortOptionsGroup)
+        val sortOptionsGroup = view.findViewById<RadioGroup>(R.id.sortOptionsGroup)
         val checkedId = when (currentSort) {
             "title" -> R.id.sortTitle
             "author" -> R.id.sortAuthor
@@ -48,15 +63,12 @@ class SortDialogFragment : DialogFragment() {
             onSortOptionSelected?.invoke(sortOption)
             dismiss()
         }
-        dialogView.findViewById<MaterialButton>(R.id.cancelButton).setOnClickListener { dismiss() }
+        view.findViewById<MaterialButton>(R.id.cancelButton).setOnClickListener { dismiss() }
+    }
 
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogView)
-            .create()
-        dialog.setOnShowListener {
-            DialogStyling.apply(dialog)
-        }
-        return dialog
+    override fun onStart() {
+        super.onStart()
+        DialogStyling.apply(dialog)
     }
     
     fun setOnSortOptionSelectedListener(listener: (String) -> Unit) {

@@ -1,10 +1,10 @@
 package com.booktracker.booksidntneed.ui.dialog
 
-import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import androidx.fragment.app.DialogFragment
@@ -30,11 +30,25 @@ class SellerSelectionDialogFragment : DialogFragment() {
         super.onDetach()
     }
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_seller_selection, null)
-        val dialogTitle = dialogView.findViewById<TextView>(R.id.dialog_title)
-        val recyclerView = dialogView.findViewById<RecyclerView>(R.id.seller_recycler_view)
-        val cancelButton = dialogView.findViewById<Button>(R.id.cancel_button)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.dialog_seller_selection, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        val dialogTitle = view.findViewById<TextView>(R.id.dialog_title)
+        val recyclerView = view.findViewById<RecyclerView>(R.id.seller_recycler_view)
+        val cancelButton = view.findViewById<Button>(R.id.cancel_button)
 
         val args = requireArguments()
         val bookTitle = args.getString("bookTitle") ?: "Select Seller"
@@ -52,15 +66,11 @@ class SellerSelectionDialogFragment : DialogFragment() {
         recyclerView.adapter = adapter
 
         cancelButton.setOnClickListener { dismiss() }
+    }
 
-        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogView)
-            .setCancelable(true)
-            .create()
-        dialog.setOnShowListener {
-            DialogStyling.apply(dialog)
-        }
-        return dialog
+    override fun onStart() {
+        super.onStart()
+        DialogStyling.apply(dialog)
     }
 
     companion object {

@@ -1,10 +1,10 @@
 package com.booktracker.booksidntneed.ui.dialog
 
-import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.Toast
@@ -29,23 +29,37 @@ class EditCategoryDialogFragment : DialogFragment() {
         listener = null
     }
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_category, null)
-        val categoryNameEditText = dialogView.findViewById<TextInputEditText>(R.id.editCategoryNameEditText)
-        val editButton = dialogView.findViewById<Button>(R.id.editCategoryButton)
-        val cancelButton = dialogView.findViewById<Button>(R.id.cancelEditButton)
-        val colorOption1 = dialogView.findViewById<View>(R.id.colorOption1)
-        val colorOption2 = dialogView.findViewById<View>(R.id.colorOption2)
-        val colorOption3 = dialogView.findViewById<View>(R.id.colorOption3)
-        val colorOption4 = dialogView.findViewById<View>(R.id.colorOption4)
-        val colorOption5 = dialogView.findViewById<View>(R.id.colorOption5)
-        // val colorOption6 = dialogView.findViewById<View>(R.id.colorOption6) // Comment out or remove lines referencing colorOption6 and colorOption6Selected if they do not exist in the layout.
-        val colorOption1Selected = dialogView.findViewById<ImageView>(R.id.colorOption1Selected)
-        val colorOption2Selected = dialogView.findViewById<ImageView>(R.id.colorOption2Selected)
-        val colorOption3Selected = dialogView.findViewById<ImageView>(R.id.colorOption3Selected)
-        val colorOption4Selected = dialogView.findViewById<ImageView>(R.id.colorOption4Selected)
-        val colorOption5Selected = dialogView.findViewById<ImageView>(R.id.colorOption5Selected)
-        // val colorOption6Selected = dialogView.findViewById<ImageView>(R.id.colorOption6Selected) // Comment out or remove lines referencing colorOption6 and colorOption6Selected if they do not exist in the layout.
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.dialog_edit_category, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        val categoryNameEditText = view.findViewById<TextInputEditText>(R.id.editCategoryNameEditText)
+        val editButton = view.findViewById<Button>(R.id.editCategoryButton)
+        val cancelButton = view.findViewById<Button>(R.id.cancelEditButton)
+        val colorOption1 = view.findViewById<View>(R.id.colorOption1)
+        val colorOption2 = view.findViewById<View>(R.id.colorOption2)
+        val colorOption3 = view.findViewById<View>(R.id.colorOption3)
+        val colorOption4 = view.findViewById<View>(R.id.colorOption4)
+        val colorOption5 = view.findViewById<View>(R.id.colorOption5)
+        // val colorOption6 = view.findViewById<View>(R.id.colorOption6) // Comment out or remove lines referencing colorOption6 and colorOption6Selected if they do not exist in the layout.
+        val colorOption1Selected = view.findViewById<ImageView>(R.id.colorOption1Selected)
+        val colorOption2Selected = view.findViewById<ImageView>(R.id.colorOption2Selected)
+        val colorOption3Selected = view.findViewById<ImageView>(R.id.colorOption3Selected)
+        val colorOption4Selected = view.findViewById<ImageView>(R.id.colorOption4Selected)
+        val colorOption5Selected = view.findViewById<ImageView>(R.id.colorOption5Selected)
+        // val colorOption6Selected = view.findViewById<ImageView>(R.id.colorOption6Selected) // Comment out or remove lines referencing colorOption6 and colorOption6Selected if they do not exist in the layout.
 
         val args = requireArguments()
         val category = BundleCompat.getParcelable(args, "category", Category::class.java)!!
@@ -61,8 +75,8 @@ class EditCategoryDialogFragment : DialogFragment() {
             Triple(colorOption5, "#A855F7", colorOption5Selected),
             // Triple(colorOption6, "#F43F5E", colorOption6Selected) // Comment out or remove lines referencing colorOption6 and colorOption6Selected if they do not exist in the layout.
         )
-        colorOptions.forEach { (view, color, checkmark) ->
-            view.setOnClickListener {
+        colorOptions.forEach { (optionView, color, checkmark) ->
+            optionView.setOnClickListener {
                 colorOptions.forEach { (_, _, otherCheckmark) ->
                     otherCheckmark.visibility = View.GONE
                 }
@@ -83,15 +97,11 @@ class EditCategoryDialogFragment : DialogFragment() {
             dismiss()
         }
         cancelButton.setOnClickListener { dismiss() }
+    }
 
-        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogView)
-            .setCancelable(true)
-            .create()
-        dialog.setOnShowListener {
-            DialogStyling.apply(dialog)
-        }
-        return dialog
+    override fun onStart() {
+        super.onStart()
+        DialogStyling.apply(dialog)
     }
 
     companion object {

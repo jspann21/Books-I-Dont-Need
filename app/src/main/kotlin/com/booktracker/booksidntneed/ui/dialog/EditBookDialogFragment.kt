@@ -1,8 +1,9 @@
 package com.booktracker.booksidntneed.ui.dialog
 
-import android.app.Dialog
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ImageView
@@ -16,24 +17,37 @@ import com.booktracker.booksidntneed.model.Book
 import com.booktracker.booksidntneed.model.BookStore
 import com.booktracker.booksidntneed.model.EditBookData
 import com.booktracker.booksidntneed.ui.MainViewModel
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 
 class EditBookDialogFragment : DialogFragment() {
     private val viewModel: MainViewModel by activityViewModels()
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_manual_book_entry, null)
-        val titleEditText = dialogView.findViewById<TextInputEditText>(R.id.titleEditText)
-        val authorEditText = dialogView.findViewById<TextInputEditText>(R.id.authorEditText)
-        val isbnEditText = dialogView.findViewById<TextInputEditText>(R.id.isbnEditText)
-        val priceEditText = dialogView.findViewById<TextInputEditText>(R.id.priceEditText)
-        val storeNameEditText = dialogView.findViewById<TextInputEditText>(R.id.storeNameEditText)
-        val storeUrlEditText = dialogView.findViewById<TextInputEditText>(R.id.storeUrlEditText)
-        val categoryDropdown = dialogView.findViewById<MaterialAutoCompleteTextView>(R.id.categoryDropdown)
-        val headerTitle = dialogView.findViewById<TextView>(R.id.dialogHeaderTitle)
-        val headerIcon = dialogView.findViewById<ImageView>(R.id.dialogHeaderIcon)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_TITLE, R.style.ThemeOverlay_BooksIDontNeed_Dialog)
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        return inflater.inflate(R.layout.dialog_manual_book_entry, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        val titleEditText = view.findViewById<TextInputEditText>(R.id.titleEditText)
+        val authorEditText = view.findViewById<TextInputEditText>(R.id.authorEditText)
+        val isbnEditText = view.findViewById<TextInputEditText>(R.id.isbnEditText)
+        val priceEditText = view.findViewById<TextInputEditText>(R.id.priceEditText)
+        val storeNameEditText = view.findViewById<TextInputEditText>(R.id.storeNameEditText)
+        val storeUrlEditText = view.findViewById<TextInputEditText>(R.id.storeUrlEditText)
+        val categoryDropdown = view.findViewById<MaterialAutoCompleteTextView>(R.id.categoryDropdown)
+        val headerTitle = view.findViewById<TextView>(R.id.dialogHeaderTitle)
+        val headerIcon = view.findViewById<ImageView>(R.id.dialogHeaderIcon)
         headerTitle.text = "Edit Book Details"
         headerIcon.setImageResource(R.drawable.ic_edit)
 
@@ -55,8 +69,8 @@ class EditBookDialogFragment : DialogFragment() {
         categoryDropdown.setAdapter(adapter)
 
         // Buttons
-        dialogView.findViewById<Button>(R.id.cancelButton).setOnClickListener { dismiss() }
-        dialogView.findViewById<Button>(R.id.saveButton).apply {
+        view.findViewById<Button>(R.id.cancelButton).setOnClickListener { dismiss() }
+        view.findViewById<Button>(R.id.saveButton).apply {
             text = "Update Book"
             setOnClickListener {
                 val title = titleEditText.text.toString().trim()
@@ -98,15 +112,13 @@ class EditBookDialogFragment : DialogFragment() {
                 dismiss()
             }
         }
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogView)
-            .setCancelable(true)
-            .create()
-        dialog.setOnShowListener {
-            DialogStyling.apply(dialog)
-        }
-        return dialog
     }
+
+    override fun onStart() {
+        super.onStart()
+        DialogStyling.apply(dialog)
+    }
+
     private fun isValidISBN(isbn: String): Boolean {
         val cleanISBN = isbn.replace(Regex("[\\s-]"), "")
         return cleanISBN.matches(Regex("\\d{10}")) || cleanISBN.matches(Regex("\\d{9}[\\dX]")) || cleanISBN.matches(Regex("\\d{13}"))
