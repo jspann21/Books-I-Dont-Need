@@ -12,6 +12,8 @@
 
 # Local machine config
 local.properties
+.env
+.env.*
 
 # Kotlin
 .kotlin/
@@ -20,14 +22,26 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+**/.cxx/
+**/captures/
+**/outputs/
+**/generated/
 *.apk
 *.ap_
 *.aab
+*.idsig
 *.dex
 *.class
 output.json
+mapping.txt
+seeds.txt
+usage.txt
 lint-results*.html
 lint-results*.xml
+lint-results*.txt
+lint-report*.html
+lint-report*.xml
+lint-report*.txt
 
 # Signing / secrets
 *.jks
@@ -37,9 +51,8 @@ release.properties
 *.p12
 *.pem
 *.key
-*.env
-.env
-.env.*
+google-services.json
+GoogleService-Info.plist
 
 # Logs
 *.log
@@ -47,6 +60,7 @@ logcat.txt
 hs_err_pid*
 replay_pid*
 *.hprof
+*.trace
 
 # Editor / OS files
 .vscode/*
