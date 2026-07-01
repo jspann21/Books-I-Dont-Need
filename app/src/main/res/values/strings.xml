@@ -16,7 +16,29 @@
     <!-- Book Card -->
     <string name="book_date_added_label">Added: %s</string>
     <string name="no_price_available">Price not available</string>
+    <string name="no_price_available_short">N/A</string>
+    <string name="book_price">$%1$.2f</string>
+    <string name="book_price_range">$%1$.2f - $%2$.2f</string>
+    <string name="book_price_range_compact">$%1$.2f-$%2$.2f</string>
+    <string name="no_stores_available">No stores available</string>
+    <string name="no_stores">No stores</string>
+    <string name="available_at_store">Available at %1$s</string>
+    <string name="available_at_store_count">Available at %1$d stores</string>
+    <string name="visit_store">Visit Store</string>
     <string name="view_stores">View All Stores</string>
+    <string name="hide_stores">Hide Stores</string>
+    <string name="isbn_13_label">ISBN-13: %1$s</string>
+    <string name="isbn_10_label">ISBN-10: %1$s</string>
+    <string name="isbn_both_label">ISBN-13: %1$s\nISBN-10: %2$s</string>
+    <string name="copy_book_title_label">Book Title</string>
+    <string name="copy_author_label">Author</string>
+    <string name="copy_isbn_13_label">ISBN-13</string>
+    <string name="copy_isbn_10_label">ISBN-10</string>
+    <string name="copied_to_clipboard">%1$s copied to clipboard</string>
+    <plurals name="store_count_short">
+        <item quantity="one">%1$d store</item>
+        <item quantity="other">%1$d stores</item>
+    </plurals>
 
     <!-- Sort Options -->
 

@@ -132,20 +132,35 @@ class BooksAdapter(
 
     private fun showCopyOptionsSheet(anchorView: View, book: Book) {
         val context = anchorView.context
-        val sheetView = LayoutInflater.from(context).inflate(R.layout.bottom_sheet_copy_book_details, null)
+        val parent = anchorView.rootView as ViewGroup
+        val sheetView = LayoutInflater.from(context).inflate(R.layout.bottom_sheet_copy_book_details, parent, false)
         val dialog = BottomSheetDialog(context)
 
         sheetView.findViewById<TextView>(R.id.copySheetSubtitleTextView).text = book.title
 
-        setupCopyRow(dialog, sheetView, R.id.copyTitleRow, R.id.copyTitleValueTextView, "Book Title", book.title)
-        setupCopyRow(dialog, sheetView, R.id.copyAuthorRow, R.id.copyAuthorValueTextView, "Author", book.author)
+        setupCopyRow(
+            dialog,
+            sheetView,
+            R.id.copyTitleRow,
+            R.id.copyTitleValueTextView,
+            context.getString(R.string.copy_book_title_label),
+            book.title
+        )
+        setupCopyRow(
+            dialog,
+            sheetView,
+            R.id.copyAuthorRow,
+            R.id.copyAuthorValueTextView,
+            context.getString(R.string.copy_author_label),
+            book.author
+        )
         setupOptionalCopyRow(
             dialog,
             sheetView,
             R.id.copyIsbn13Row,
             R.id.copyIsbn13ValueTextView,
             R.id.copyIsbn13Divider,
-            "ISBN-13",
+            context.getString(R.string.copy_isbn_13_label),
             book.isbn13
         )
         setupOptionalCopyRow(
@@ -154,7 +169,7 @@ class BooksAdapter(
             R.id.copyIsbn10Row,
             R.id.copyIsbn10ValueTextView,
             R.id.copyIsbn10Divider,
-            "ISBN-10",
+            context.getString(R.string.copy_isbn_10_label),
             book.isbn10
         )
 
@@ -198,7 +213,7 @@ class BooksAdapter(
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText(label, text)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, "$label copied to clipboard", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.copied_to_clipboard, label), Toast.LENGTH_SHORT).show()
     }
 
     private fun loadCoverImage(coverImageUrl: String?, imageView: ImageView) {
@@ -232,6 +247,37 @@ class BooksAdapter(
     private fun isBooksAMillionCoverUrl(url: String): Boolean {
         return url.contains("booksamillion.com", ignoreCase = true) &&
             url.contains("/covers/", ignoreCase = true)
+    }
+
+    private fun Context.getPriceText(lowestPrice: Double?, highestPrice: Double?, compact: Boolean = false): String {
+        return when (lowestPrice) {
+            null -> getString(if (compact) R.string.no_price_available_short else R.string.no_price_available)
+            highestPrice -> getString(R.string.book_price, lowestPrice)
+            else -> getString(
+                if (compact) R.string.book_price_range_compact else R.string.book_price_range,
+                lowestPrice,
+                highestPrice
+            )
+        }
+    }
+
+    private fun TextView.setIsbnText(isbn13: String?, isbn10: String?) {
+        text = when {
+            !isbn13.isNullOrBlank() && !isbn10.isNullOrBlank() -> {
+                context.getString(R.string.isbn_both_label, isbn13, isbn10)
+            }
+            !isbn13.isNullOrBlank() -> {
+                context.getString(R.string.isbn_13_label, isbn13)
+            }
+            !isbn10.isNullOrBlank() -> {
+                context.getString(R.string.isbn_10_label, isbn10)
+            }
+            else -> {
+                visibility = View.GONE
+                return
+            }
+        }
+        visibility = View.VISIBLE
     }
 
     inner class BookViewHolder(private val binding: ItemBookCardBinding) : RecyclerView.ViewHolder(binding.root) {
@@ -293,38 +339,30 @@ class BooksAdapter(
             }
         }
 
-        @SuppressLint("DefaultLocale")
         private fun setupPriceInfo(bookWithStores: BookWithStores) {
             val lowestPrice = bookWithStores.getLowestPrice()
             val highestPrice = bookWithStores.getHighestPrice()
 
-            when (lowestPrice) {
-                null -> {
-                    binding.priceTextView.text = binding.root.context.getString(R.string.no_price_available)
-                }
-                highestPrice -> {
-                    binding.priceTextView.text = String.format("$%.2f", lowestPrice)
-                }
-                else -> {
-                    binding.priceTextView.text = String.format("$%.2f - $%.2f", lowestPrice, highestPrice)
-                }
-            }
+            binding.priceTextView.text = binding.root.context.getPriceText(lowestPrice, highestPrice)
         }
 
         private fun setupStoreInfo(bookWithStores: BookWithStores) {
             when (val storeCount = bookWithStores.stores.size) {
                 0 -> {
-                    binding.storeCountTextView.text = "No stores available"
+                    binding.storeCountTextView.setText(R.string.no_stores_available)
                     binding.viewStoresButton.visibility = View.GONE
                 }
                 1 -> {
-                    binding.storeCountTextView.text = "Available at ${bookWithStores.getStoresSortedByPrice().first().storeName}"
-                    binding.viewStoresButton.text = "Visit Store"
+                    binding.storeCountTextView.text = binding.root.context.getString(
+                        R.string.available_at_store,
+                        bookWithStores.getStoresSortedByPrice().first().storeName
+                    )
+                    binding.viewStoresButton.setText(R.string.visit_store)
                     binding.viewStoresButton.visibility = View.VISIBLE
                 }
                 else -> {
-                    binding.storeCountTextView.text = "Available at $storeCount stores"
-                    binding.viewStoresButton.text = "View All Stores"
+                    binding.storeCountTextView.text = binding.root.context.getString(R.string.available_at_store_count, storeCount)
+                    binding.viewStoresButton.setText(R.string.view_stores)
                     binding.viewStoresButton.visibility = View.VISIBLE
                 }
             }
@@ -339,28 +377,8 @@ class BooksAdapter(
             storesAdapter?.submitList(bookWithStores.getStoresSortedByPrice())
         }
 
-        private fun setupIsbnInfo(book: com.booktracker.booksidntneed.model.Book) {
-            val isbn13 = book.isbn13
-            val isbn10 = book.isbn10
-            
-            when {
-                !isbn13.isNullOrBlank() && !isbn10.isNullOrBlank() -> {
-                    // Show both ISBNs in a compact format
-                    binding.bookIsbnTextView.text = "ISBN-13: $isbn13\nISBN-10: $isbn10"
-                    binding.bookIsbnTextView.visibility = View.VISIBLE
-                }
-                !isbn13.isNullOrBlank() -> {
-                    binding.bookIsbnTextView.text = "ISBN-13: $isbn13"
-                    binding.bookIsbnTextView.visibility = View.VISIBLE
-                }
-                !isbn10.isNullOrBlank() -> {
-                    binding.bookIsbnTextView.text = "ISBN-10: $isbn10"
-                    binding.bookIsbnTextView.visibility = View.VISIBLE
-                }
-                else -> {
-                    binding.bookIsbnTextView.visibility = View.GONE
-                }
-            }
+        private fun setupIsbnInfo(book: Book) {
+            binding.bookIsbnTextView.setIsbnText(book.isbn13, book.isbn10)
         }
 
         private fun toggleStoresVisibility(bookWithStores: BookWithStores) {
@@ -368,11 +386,11 @@ class BooksAdapter(
             binding.storesRecyclerView.visibility = if (isStoresExpanded) View.VISIBLE else View.GONE
             
             if (isStoresExpanded) {
-                binding.viewStoresButton.text = "Hide Stores"
+                binding.viewStoresButton.setText(R.string.hide_stores)
             } else {
                 // When collapsing, restore the correct button text based on store count
                 val storeCount = bookWithStores.stores.size
-                binding.viewStoresButton.text = if (storeCount == 1) "Visit Store" else "View All Stores"
+                binding.viewStoresButton.setText(if (storeCount == 1) R.string.visit_store else R.string.view_stores)
             }
         }
         
@@ -444,29 +462,27 @@ class BooksAdapter(
             val lowestPrice = bookWithStores.getLowestPrice()
             val highestPrice = bookWithStores.getHighestPrice()
 
-            when (lowestPrice) {
-                null -> {
-                    binding.priceTextView.text = "N/A"
-                }
-                highestPrice -> {
-                    binding.priceTextView.text = String.format("$%.2f", lowestPrice)
-                }
-                else -> {
-                    binding.priceTextView.text = String.format("$%.2f-$%.2f", lowestPrice, highestPrice)
-                }
-            }
+            binding.priceTextView.text = binding.root.context.getPriceText(lowestPrice, highestPrice, compact = true)
         }
 
         private fun setupMinimalStoreInfo(bookWithStores: BookWithStores) {
             when (val storeCount = bookWithStores.stores.size) {
                 0 -> {
-                    binding.storeCountTextView.text = "No stores"
+                    binding.storeCountTextView.setText(R.string.no_stores)
                 }
                 1 -> {
-                    binding.storeCountTextView.text = "1 store"
+                    binding.storeCountTextView.text = binding.root.resources.getQuantityString(
+                        R.plurals.store_count_short,
+                        storeCount,
+                        storeCount
+                    )
                 }
                 else -> {
-                    binding.storeCountTextView.text = "$storeCount stores"
+                    binding.storeCountTextView.text = binding.root.resources.getQuantityString(
+                        R.plurals.store_count_short,
+                        storeCount,
+                        storeCount
+                    )
                 }
             }
         }
@@ -540,55 +556,29 @@ class BooksAdapter(
                 .start()
         }
 
-        private fun setupExpandedIsbnInfo(book: com.booktracker.booksidntneed.model.Book) {
-            val isbn13 = book.isbn13
-            val isbn10 = book.isbn10
-            
-            when {
-                !isbn13.isNullOrBlank() && !isbn10.isNullOrBlank() -> {
-                    binding.bookIsbnTextView.text = "ISBN-13: $isbn13\nISBN-10: $isbn10"
-                    binding.bookIsbnTextView.visibility = View.VISIBLE
-                }
-                !isbn13.isNullOrBlank() -> {
-                    binding.bookIsbnTextView.text = "ISBN-13: $isbn13"
-                    binding.bookIsbnTextView.visibility = View.VISIBLE
-                }
-                !isbn10.isNullOrBlank() -> {
-                    binding.bookIsbnTextView.text = "ISBN-10: $isbn10"
-                    binding.bookIsbnTextView.visibility = View.VISIBLE
-                }
-                else -> {
-                    binding.bookIsbnTextView.visibility = View.GONE
-                }
-            }
+        private fun setupExpandedIsbnInfo(book: Book) {
+            binding.bookIsbnTextView.setIsbnText(book.isbn13, book.isbn10)
         }
 
         private fun setupExpandedPriceInfo(bookWithStores: BookWithStores) {
             val lowestPrice = bookWithStores.getLowestPrice()
             val highestPrice = bookWithStores.getHighestPrice()
 
-            when (lowestPrice) {
-                null -> {
-                    binding.expandedPriceTextView.text = binding.root.context.getString(R.string.no_price_available)
-                }
-                highestPrice -> {
-                    binding.expandedPriceTextView.text = String.format("$%.2f", lowestPrice)
-                }
-                else -> {
-                    binding.expandedPriceTextView.text = String.format("$%.2f - $%.2f", lowestPrice, highestPrice)
-                }
-            }
+            binding.expandedPriceTextView.text = binding.root.context.getPriceText(lowestPrice, highestPrice)
         }
 
         private fun setupExpandedStoreInfo(bookWithStores: BookWithStores) {
             when (val storeCount = bookWithStores.stores.size) {
                 0 -> {
-                    binding.expandedStoreCountTextView.text = "No stores available"
+                    binding.expandedStoreCountTextView.setText(R.string.no_stores_available)
                     binding.viewStoresButton.visibility = View.GONE
                 }
                 1 -> {
-                    binding.expandedStoreCountTextView.text = "Available at ${bookWithStores.getStoresSortedByPrice().first().storeName}"
-                    binding.viewStoresButton.text = "Visit Store"
+                    binding.expandedStoreCountTextView.text = binding.root.context.getString(
+                        R.string.available_at_store,
+                        bookWithStores.getStoresSortedByPrice().first().storeName
+                    )
+                    binding.viewStoresButton.setText(R.string.visit_store)
                     binding.viewStoresButton.visibility = View.VISIBLE
 
                     binding.viewStoresButton.setOnClickListener {
@@ -596,12 +586,12 @@ class BooksAdapter(
                     }
                 }
                 else -> {
-                    binding.expandedStoreCountTextView.text = "Available at $storeCount stores"
-                    binding.viewStoresButton.text = "View All Stores"
+                    binding.expandedStoreCountTextView.text = binding.root.context.getString(R.string.available_at_store_count, storeCount)
+                    binding.viewStoresButton.setText(R.string.view_stores)
                     binding.viewStoresButton.visibility = View.VISIBLE
 
                     binding.viewStoresButton.setOnClickListener {
-                        toggleStoresVisibility(bookWithStores)
+                        toggleStoresVisibility()
                     }
                 }
             }
@@ -616,14 +606,14 @@ class BooksAdapter(
             storesAdapter?.submitList(bookWithStores.getStoresSortedByPrice())
         }
 
-        private fun toggleStoresVisibility(bookWithStores: BookWithStores) {
+        private fun toggleStoresVisibility() {
             val isStoresExpanded = binding.storesRecyclerView.isVisible
             binding.storesRecyclerView.visibility = if (isStoresExpanded) View.GONE else View.VISIBLE
             
             if (isStoresExpanded) {
-                binding.viewStoresButton.text = "View All Stores"
+                binding.viewStoresButton.setText(R.string.view_stores)
             } else {
-                binding.viewStoresButton.text = "Hide Stores"
+                binding.viewStoresButton.setText(R.string.hide_stores)
             }
         }
 
