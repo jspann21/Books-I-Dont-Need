@@ -225,7 +225,8 @@ class MainActivity : AppCompatActivity(),
         // Clean up Material 3 Expressive spring animations
         cleanupSpringAnimations()
     }
-    
+
+
     /**
      * Clean up all spring animations to prevent memory leaks
      */
@@ -1195,4 +1196,3 @@ class MainActivity : AppCompatActivity(),
         }
     }
 } 
-

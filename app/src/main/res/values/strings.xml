@@ -126,6 +126,10 @@
     <string name="dismiss">Dismiss</string>
     <string name="close">Close</string>
     <string name="settings_auto_applied_hint">Changes are applied automatically</string>
+    <string name="appearance">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
     <string name="update_all_now">Update all prices now</string>
     <string name="update_all_now_desc">Runs a full refresh of all book prices. You will receive a notification when it finishes. Please avoid running too frequently.</string>
     <string name="full_price_update_progress_title">Updating all prices</string>

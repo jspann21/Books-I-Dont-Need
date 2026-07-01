@@ -16,6 +16,28 @@
         <item name="android:windowExitAnimation">@anim/dialog_exit</item>
     </style>
 
+    <!-- No-animation variant used when the dialog is being restored
+         during a theme transition (the snapshot overlay covers it). -->
+    <style name="ThemeOverlay.BooksIDontNeed.Dialog.NoAnimation" parent="ThemeOverlay.BooksIDontNeed.Dialog">
+        <item name="android:windowAnimationStyle">@style/Animation.BooksIDontNeed.None</item>
+    </style>
+
+    <style name="Animation.BooksIDontNeed.None" parent="@android:style/Animation">
+        <item name="android:windowEnterAnimation">@null</item>
+        <item name="android:windowExitAnimation">@null</item>
+    </style>
+
+    <style name="Theme.BooksIDontNeed.ThemeTransition" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowAnimationStyle">@style/Animation.BooksIDontNeed.None</item>
+    </style>
+
     <style name="ShapeAppearance.BooksIDontNeed.Dialog" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">28dp</item>

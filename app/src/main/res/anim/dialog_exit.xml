@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Material 3 Expressive dialog exit animation.
-     Quick center scale-down + fade-out. No bounce on dismiss — crisp and clean. -->
+     Quick center scale-down + fade-out. No bounce on dismiss - crisp and clean. -->
 <set xmlns:android="http://schemas.android.com/apk/res/android"
     android:shareInterpolator="false">
 
