@@ -35,6 +35,9 @@
     <string name="copy_isbn_13_label">ISBN-13</string>
     <string name="copy_isbn_10_label">ISBN-10</string>
     <string name="copied_to_clipboard">%1$s copied to clipboard</string>
+    <string name="unknown_condition">Unknown condition</string>
+    <string name="unknown_location">Unknown location</string>
+    <string name="seller_details">%1$s • %2$s • %3$s</string>
     <plurals name="store_count_short">
         <item quantity="one">%1$d store</item>
         <item quantity="other">%1$d stores</item>

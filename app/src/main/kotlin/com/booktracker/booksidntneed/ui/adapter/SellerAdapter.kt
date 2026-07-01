@@ -6,10 +6,11 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.booktracker.booksidntneed.R
+import com.booktracker.booksidntneed.network.SellerOption
 
 class SellerAdapter(
-    private val sellers: List<com.booktracker.booksidntneed.network.SellerOption>,
-    private val onSellerSelected: (com.booktracker.booksidntneed.network.SellerOption) -> Unit
+    private val sellers: List<SellerOption>,
+    private val onSellerSelected: (SellerOption) -> Unit
 ) : RecyclerView.Adapter<SellerAdapter.SellerViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SellerViewHolder {
@@ -31,12 +32,15 @@ class SellerAdapter(
         private val nameTextView: TextView = itemView.findViewById(R.id.seller_name)
         private val detailsTextView: TextView = itemView.findViewById(R.id.seller_details)
 
-        fun bind(seller: com.booktracker.booksidntneed.network.SellerOption) {
+        fun bind(seller: SellerOption) {
             nameTextView.text = seller.sellerName
-            val priceText = "$${String.format("%.2f", seller.price)}"
-            val conditionText = if (seller.condition?.isNullOrBlank() == false) seller.condition else "Unknown condition"
-            val locationText = if (seller.location?.isNullOrBlank() == false) seller.location else "Unknown location"
-            detailsTextView.text = "$priceText • $conditionText • $locationText"
+            val context = itemView.context
+            val priceText = context.getString(R.string.book_price, seller.price)
+            val conditionText = seller.condition.takeUnless { it.isNullOrBlank() }
+                ?: context.getString(R.string.unknown_condition)
+            val locationText = seller.location.takeUnless { it.isNullOrBlank() }
+                ?: context.getString(R.string.unknown_location)
+            detailsTextView.text = context.getString(R.string.seller_details, priceText, conditionText, locationText)
         }
     }
 } 
