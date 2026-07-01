@@ -64,7 +64,7 @@ class BiblioRequestStrategy : StoreRequestStrategy {
             .header("Cache-Control", "max-age=0")
             .referrer("https://www.google.com/search?q=biblio+books")
 
-        applyCookies(homepageConnection, session, isFirstVisit = true)
+        applyCookies(homepageConnection, session)
         delay(Random.nextLong(500, 1100).milliseconds)
 
         val homepageDoc = homepageConnection.get()
@@ -93,17 +93,17 @@ class BiblioRequestStrategy : StoreRequestStrategy {
             1 -> {
                 connection.referrer("https://www.google.com/search?q=biblio+books")
                 connection.header("Sec-Fetch-Site", "cross-site")
-                applyCookies(connection, session, isFirstVisit = true)
+                applyCookies(connection, session)
             }
             2 -> {
                 connection.referrer("https://www.biblio.com/")
                 connection.header("Sec-Fetch-Site", "same-origin")
-                applyCookies(connection, session, isFirstVisit = false)
+                applyCookies(connection, session)
             }
             else -> {
                 connection.referrer("https://www.biblio.com/bookstore")
                 connection.header("Sec-Fetch-Site", "same-origin")
-                applyCookies(connection, session, isFirstVisit = false)
+                applyCookies(connection, session)
             }
         }
     }
@@ -129,7 +129,7 @@ class BiblioRequestStrategy : StoreRequestStrategy {
         }
     }
 
-    private fun applyCookies(connection: Connection, session: CookieSession, isFirstVisit: Boolean) {
+    private fun applyCookies(connection: Connection, session: CookieSession) {
         val cookies = session.matching("biblio_", stripPrefix = true).toMutableMap()
         cookies["aid"] = cookies["aid"] ?: "frg"
         connection.cookies(cookies)

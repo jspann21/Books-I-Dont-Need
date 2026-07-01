@@ -202,8 +202,8 @@ class BiblioParser : BookParser {
     }
 
     private fun extractISBN(document: Document, url: String): Pair<String?, String?> {
-        var isbn10: String? = null
-        var isbn13: String? = null
+        var isbn10: String?
+        var isbn13: String?
 
         val urlIsbn = extractISBNFromText(url)
         isbn10 = urlIsbn.first

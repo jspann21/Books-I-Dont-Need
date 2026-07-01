@@ -222,8 +222,8 @@ class BooksAMillionParser : BookParser {
         productJson: JSONObject?,
         structuredData: List<JSONObject>
     ): Pair<String?, String?> {
-        var isbn10: String? = null
-        var isbn13: String? = null
+        var isbn10: String?
+        var isbn13: String?
 
         val urlIsbn = extractISBNFromText(url)
         isbn10 = urlIsbn.first
@@ -515,8 +515,7 @@ class BooksAMillionParser : BookParser {
     private fun extractPriceFromStructuredData(objects: List<JSONObject>): Double? {
         for (obj in objects) {
             obj.optString("price").takeIf { it.isNotBlank() }?.let { extractPriceFromText(it) }?.takeIf { it > 0 }?.let { return it }
-            val offers = obj.opt("offers")
-            when (offers) {
+            when (val offers = obj.opt("offers")) {
                 is JSONObject -> offers.optString("price").takeIf { it.isNotBlank() }?.let { extractPriceFromText(it) }?.takeIf { it > 0 }?.let { return it }
                 is JSONArray -> {
                     for (index in 0 until offers.length()) {

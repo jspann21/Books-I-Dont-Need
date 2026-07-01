@@ -116,7 +116,7 @@ class ValoreParser : BookParser {
         }
         
         // Try extracting from structured data
-        val jsonLdAuthor = extractFromJsonLD(document, "author")
+        val jsonLdAuthor = extractAuthorFromJsonLD(document)
         if (!jsonLdAuthor.isNullOrBlank()) {
             return cleanAuthor(jsonLdAuthor)
         }
@@ -391,17 +391,13 @@ class ValoreParser : BookParser {
     
 
     
-    private fun extractFromJsonLD(document: Document, field: String): String? {
+    private fun extractAuthorFromJsonLD(document: Document): String? {
         val jsonLdScripts = document.select("script[type='application/ld+json']")
         for (script in jsonLdScripts) {
             try {
                 val content = script.html()
-                when (field) {
-                    "author" -> {
-                        val authorMatch = Regex("\"author\"\\s*:\\s*\"([^\"]+)\"").find(content)
-                        if (authorMatch != null) return authorMatch.groupValues[1]
-                    }
-                }
+                val authorMatch = Regex("\"author\"\\s*:\\s*\"([^\"]+)\"").find(content)
+                if (authorMatch != null) return authorMatch.groupValues[1]
             } catch (_: Exception) {
                 // Continue to next script
             }

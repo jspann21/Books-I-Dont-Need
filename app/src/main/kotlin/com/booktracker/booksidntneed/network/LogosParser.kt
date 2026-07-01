@@ -86,13 +86,6 @@ class LogosParser : BookParser {
                 authorElements.add(primaryAuthor.trim())
             }
             
-            // Check for additional authors indicator (like "and 3 more")
-            val moreAuthorsText = authorContainer.selectFirst("div.index--link---nBEo")?.text()
-            if (!moreAuthorsText.isNullOrBlank() && moreAuthorsText.contains("more")) {
-                // For now, we'll just include the primary author
-                // In a more complete implementation, we could try to extract additional authors
-            }
-            
             if (authorElements.isNotEmpty()) {
                 return authorElements.joinToString("; ")
             }

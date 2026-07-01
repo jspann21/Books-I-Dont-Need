@@ -1,6 +1,5 @@
 package com.booktracker.booksidntneed.network
 
-import android.annotation.SuppressLint
 import android.util.Log
 import org.jsoup.nodes.Document
 import java.util.Locale
@@ -171,7 +170,7 @@ class WorldOfBooksParser : BookParser {
         }
         
         // Try extracting from structured data
-        val jsonLdAuthor = extractFromJsonLD(document, "author")
+        val jsonLdAuthor = extractAuthorFromJsonLD(document)
         if (!jsonLdAuthor.isNullOrBlank()) {
             return cleanAuthor(jsonLdAuthor)
         }
@@ -274,7 +273,6 @@ class WorldOfBooksParser : BookParser {
             .trim()
     }
     
-    @SuppressLint("DefaultLocale")
     private fun extractPrice(document: Document): String? {
         Log.d(TAG, "Starting price extraction")
         
@@ -285,7 +283,7 @@ class WorldOfBooksParser : BookParser {
             // The first element is either the priority `product.price` or the lowest fallback price.
             val selectedPrice = javascriptPrices.first()
             
-            val priceStr = String.format("%.2f", selectedPrice)
+            val priceStr = formatPrice(selectedPrice)
             Log.d(TAG, "Selected price from JavaScript: $priceStr")
             return priceStr
         }
@@ -320,9 +318,9 @@ class WorldOfBooksParser : BookParser {
                         val price = cleanedPrice.toDouble()
                         if (price > 1.0 && price < 500.0) {
                             foundPrices.add(price)
-                            Log.d(TAG, "Found valid price: $${"%.2f".format(price)}")
+                            Log.d(TAG, "Found valid price: $${formatPrice(price)}")
                         }
-                    } catch (e: NumberFormatException) {
+                    } catch (_: NumberFormatException) {
                         // Skip invalid prices
                     }
                 }
@@ -337,7 +335,7 @@ class WorldOfBooksParser : BookParser {
             } else {
                 sortedPrices[0] // Lowest price
             }
-            val priceStr = String.format("%.2f", selectedPrice)
+            val priceStr = formatPrice(selectedPrice)
             Log.d(TAG, "Selected price from dollar elements: $priceStr")
             return priceStr
         }
@@ -364,8 +362,8 @@ class WorldOfBooksParser : BookParser {
                     }
                     
                     if (price != null) {
-                        Log.d(TAG, "Found price pattern '$pattern', returning $${"%.2f".format(price)}")
-                        return String.format("%.2f", price)
+                        Log.d(TAG, "Found price pattern '$pattern', returning $${formatPrice(price)}")
+                        return formatPrice(price)
                     }
                 }
             }
@@ -463,11 +461,11 @@ class WorldOfBooksParser : BookParser {
                             try {
                                 val price = attr.toDouble() / 100
                                 if (price > 0.01 && price < 1000.0) {
-                                    val priceStr = String.format("%.2f", price)
+                                    val priceStr = formatPrice(price)
                                     Log.d(TAG, "Found price in data attribute: $priceStr")
                                     return priceStr
                                 }
-                            } catch (e: NumberFormatException) {
+                            } catch (_: NumberFormatException) {
                                 // Continue to next
                             }
                         }
@@ -523,7 +521,7 @@ class WorldOfBooksParser : BookParser {
                         // Check if this is a reasonable price (not 0.0)
                         if (price != null && price > 0.01 && price < 1000.0) {
                             Log.d(TAG, "Successfully extracted price from JSON-LD: $priceStr")
-                            return String.format("%.2f", price)
+                            return formatPrice(price)
                         } else if (price == 0.0) {
                             Log.d(TAG, "Found JSON-LD price but it's 0.0 (possibly dynamic)")
                         }
@@ -537,7 +535,7 @@ class WorldOfBooksParser : BookParser {
                         val value = numMatch.groupValues[1].toDoubleOrNull()
                         if (value != null && value > 1.0 && value < 500.0) {
                             Log.d(TAG, "Found potential price in JSON-LD: $value")
-                            return String.format("%.2f", value)
+                            return formatPrice(value)
                         }
                     }
                 }
@@ -566,9 +564,9 @@ class WorldOfBooksParser : BookParser {
                     val price = priceValue.toDouble() / 100 // Convert cents to dollars
                     if (price > 0.01 && price < 1000.0) {
                         productPrices.add(price)
-                        Log.d(TAG, "Found product.price: $${"%.2f".format(price)}")
+                        Log.d(TAG, "Found product.price: $${formatPrice(price)}")
                     }
-                } catch (e: NumberFormatException) {
+                } catch (_: NumberFormatException) {
                     Log.d(TAG, "Could not parse product.price: $priceValue")
                 }
             }
@@ -584,9 +582,9 @@ class WorldOfBooksParser : BookParser {
                     val price = priceValue.toDouble() / 100 // Convert cents to dollars
                     if (price > 0.01 && price < 1000.0) { // Accept any positive price
                         variantPrices.add(price)
-                        Log.d(TAG, "Parsed JavaScript variant price: $${"%.2f".format(price)}")
+                        Log.d(TAG, "Parsed JavaScript variant price: $${formatPrice(price)}")
                     }
-                } catch (e: NumberFormatException) {
+                } catch (_: NumberFormatException) {
                     Log.d(TAG, "Could not parse JavaScript price: $priceValue")
                 }
             }
@@ -600,9 +598,9 @@ class WorldOfBooksParser : BookParser {
                     val price = priceValue.toDouble() / 100
                     if (price > 0.01 && price < 1000.0) {
                         variantPrices.add(price) // Add to variants as a fallback
-                        Log.d(TAG, "Found loomi_ctx price: $${"%.2f".format(price)}")
+                        Log.d(TAG, "Found loomi_ctx price: $${formatPrice(price)}")
                     }
-                } catch (e: NumberFormatException) {
+                } catch (_: NumberFormatException) {
                     Log.d(TAG, "Could not parse loomi_ctx price: $priceValue")
                 }
             }
@@ -683,18 +681,14 @@ class WorldOfBooksParser : BookParser {
     
 
     
-    private fun extractFromJsonLD(document: Document, field: String): String? {
+    private fun extractAuthorFromJsonLD(document: Document): String? {
         val jsonLdScripts = document.select("script[type='application/ld+json']")
         for (script in jsonLdScripts) {
             try {
                 val content = script.html()
-                when (field) {
-                    "author" -> {
-                        val authorMatch = Regex("\"author\"\\s*:\\s*\"([^\"]+)\"").find(content)
-                        if (authorMatch != null) return authorMatch.groupValues[1]
-                    }
-                }
-            } catch (e: Exception) {
+                val authorMatch = Regex("\"author\"\\s*:\\s*\"([^\"]+)\"").find(content)
+                if (authorMatch != null) return authorMatch.groupValues[1]
+            } catch (_: Exception) {
                 // Continue to next script
             }
         }
@@ -708,10 +702,10 @@ class WorldOfBooksParser : BookParser {
             val match = priceRegex.find(priceText)
             if (match != null) {
                 val cleanPrice = match.groupValues[1].replace(",", "")
-                return cleanPrice.toDoubleOrNull()?.let { String.format("%.2f", it) }
+                return cleanPrice.toDoubleOrNull()?.let { formatPrice(it) }
             }
             null
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -720,8 +714,10 @@ class WorldOfBooksParser : BookParser {
         return try {
             val price = priceStr.toDouble()
             price !in 0.01..1000.00 // Adjust these thresholds as needed
-        } catch (e: NumberFormatException) {
+        } catch (_: NumberFormatException) {
             true
         }
     }
-} 
+
+    private fun formatPrice(price: Double): String = String.format(Locale.US, "%.2f", price)
+}

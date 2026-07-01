@@ -23,7 +23,7 @@ class WalmartParser : BookParser {
 
             val title = extractTitle(document, url)
             val isbn = extractISBN(document, url)
-            val author = extractAuthor(document, isbn)
+            val author = extractAuthor(document)
             val price = extractPrice(document)
             val coverImage = extractCoverImage(document)
 
@@ -127,7 +127,7 @@ class WalmartParser : BookParser {
         return cleanTitle(title).takeIf { it.isNotBlank() }
     }
 
-    private fun extractAuthor(document: Document, isbn: Pair<String?, String?>): String? {
+    private fun extractAuthor(document: Document): String? {
         val authorMetaSelectors = listOf(
             "meta[property='book:author']",
             "meta[name='author']",
@@ -203,12 +203,9 @@ class WalmartParser : BookParser {
     }
 
     private fun extractISBN(document: Document, url: String): Pair<String?, String?> {
-        var isbn10: String? = null
-        var isbn13: String? = null
-
         val urlIsbn = extractISBNFromText(url)
-        isbn10 = urlIsbn.first
-        isbn13 = urlIsbn.second
+        var isbn10 = urlIsbn.first
+        var isbn13 = urlIsbn.second
 
         val isbnMetaSelectors = listOf(
             "meta[property='book:isbn']",

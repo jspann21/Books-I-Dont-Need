@@ -122,7 +122,7 @@ class BarnesAndNobleParser : BookParser {
         }
         val lowerTitle = title.lowercase(Locale.ROOT)
         return !lowerTitle.contains("barnes & noble's online bookstore") &&
-            !lowerTitle.equals("barnes & noble") &&
+            lowerTitle != "barnes & noble" &&
             !lowerTitle.contains("access denied") &&
             !lowerTitle.contains("captcha") &&
             !lowerTitle.contains("robot") &&
@@ -344,14 +344,11 @@ class BarnesAndNobleParser : BookParser {
     }
 
     private fun extractISBN(document: Document, url: String): Pair<String?, String?> {
-        var isbn10: String? = null
-        var isbn13: String? = null
-
         Log.d(TAG, "Starting ISBN extraction")
 
         val urlIsbn = extractISBNFromText(url)
-        isbn10 = urlIsbn.first
-        isbn13 = urlIsbn.second
+        var isbn10 = urlIsbn.first
+        var isbn13 = urlIsbn.second
 
         val isbnMetaSelectors = listOf(
             "meta[property='book:isbn']",
@@ -561,8 +558,7 @@ class BarnesAndNobleParser : BookParser {
                 return directPrice
             }
 
-            val offers = jsonObject.opt("offers")
-            when (offers) {
+            when (val offers = jsonObject.opt("offers")) {
                 is JSONObject -> {
                     val price = offers.optString("price").takeIf { it.isNotBlank() }?.let { extractPriceFromText(it) }
                     if (price != null && price > 0) return price
