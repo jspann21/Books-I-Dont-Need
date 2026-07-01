@@ -5,14 +5,16 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
 import android.view.WindowManager
 import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.WindowCompat
 import androidx.core.view.doOnPreDraw
 import com.booktracker.booksidntneed.ui.dialog.DialogStyling
@@ -27,7 +29,7 @@ class ThemeTransitionActivity : Activity() {
     private var restoredSnapshotToRecycle: Bitmap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        overridePendingTransition(0, 0)
+        overrideOpenTransitionWithoutAnimation()
         super.onCreate(savedInstanceState)
 
         val snapshot = ThemeTransitionSnapshot.peek()
@@ -37,9 +39,8 @@ class ThemeTransitionActivity : Activity() {
         }
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.TRANSPARENT
+        window.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
+        window.setTransparentSystemBarColorsCompat()
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         window.attributes = window.attributes.apply {
             dimAmount = DialogStyling.BACKGROUND_DIM_AMOUNT
@@ -72,7 +73,7 @@ class ThemeTransitionActivity : Activity() {
 
     override fun finish() {
         super.finish()
-        overridePendingTransition(0, 0)
+        overrideCloseTransitionWithoutAnimation()
     }
 
     override fun onDestroy() {
@@ -138,7 +139,6 @@ class ThemeTransitionActivity : Activity() {
 
     private fun finishWithoutAnimation() {
         finish()
-        overridePendingTransition(0, 0)
     }
 
     private fun matchParentParams(): ViewGroup.LayoutParams =
@@ -157,7 +157,40 @@ class ThemeTransitionActivity : Activity() {
                 .putExtra(EXTRA_THEME_MODE, mode.preferenceValue)
                 .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             context.startActivity(intent)
-            (context as? Activity)?.overridePendingTransition(0, 0)
+            (context as? Activity)?.overrideOpenTransitionWithoutAnimation()
         }
     }
+}
+
+private fun Activity.overrideOpenTransitionWithoutAnimation() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, 0, 0)
+    } else {
+        overridePendingTransitionCompat()
+    }
+}
+
+private fun Activity.overrideCloseTransitionWithoutAnimation() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
+    } else {
+        overridePendingTransitionCompat()
+    }
+}
+
+@Suppress("DEPRECATION")
+private fun Activity.overridePendingTransitionCompat() {
+    overridePendingTransition(0, 0)
+}
+
+private fun Window.setTransparentSystemBarColorsCompat() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+        setLegacyTransparentSystemBarColors()
+    }
+}
+
+@Suppress("DEPRECATION")
+private fun Window.setLegacyTransparentSystemBarColors() {
+    statusBarColor = Color.TRANSPARENT
+    navigationBarColor = Color.TRANSPARENT
 }
