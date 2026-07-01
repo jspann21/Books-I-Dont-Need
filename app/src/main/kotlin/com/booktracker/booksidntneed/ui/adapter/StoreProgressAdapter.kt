@@ -27,6 +27,8 @@ class StoreProgressAdapter : ListAdapter<MainViewModel.StoreUpdateProgress, Stor
     class ProgressViewHolder(private val binding: ItemStoreProgressBinding) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(progress: MainViewModel.StoreUpdateProgress) {
+            val context = binding.root.context
+
             // Set store name
             binding.storeName.text = progress.storeName
 
@@ -34,9 +36,9 @@ class StoreProgressAdapter : ListAdapter<MainViewModel.StoreUpdateProgress, Stor
             when (progress.status) {
                 MainViewModel.StoreUpdateStatus.PENDING -> {
                     binding.statusIcon.setImageResource(R.drawable.ic_schedule)
-                    val pendingColor = MaterialColors.getColor(binding.root.context, com.google.android.material.R.attr.colorOnSurfaceVariant, ContextCompat.getColor(binding.root.context, R.color.date_text_color))
+                    val pendingColor = MaterialColors.getColor(context, com.google.android.material.R.attr.colorOnSurfaceVariant, ContextCompat.getColor(context, R.color.date_text_color))
                     binding.statusIcon.setColorFilter(pendingColor)
-                    binding.statusText.text = "Pending"
+                    binding.statusText.setText(R.string.store_update_status_pending)
                     binding.statusText.setTextColor(pendingColor)
                     binding.progressIndicator.visibility = View.GONE
                     binding.priceLayout.visibility = View.GONE
@@ -44,9 +46,9 @@ class StoreProgressAdapter : ListAdapter<MainViewModel.StoreUpdateProgress, Stor
                 }
                 MainViewModel.StoreUpdateStatus.UPDATING -> {
                     binding.statusIcon.setImageResource(R.drawable.ic_schedule)
-                    val updatingColor = MaterialColors.getColor(binding.root.context, AppCompatR.attr.colorPrimary, ContextCompat.getColor(binding.root.context, R.color.link_color))
+                    val updatingColor = MaterialColors.getColor(context, AppCompatR.attr.colorPrimary, ContextCompat.getColor(context, R.color.link_color))
                     binding.statusIcon.setColorFilter(updatingColor)
-                    binding.statusText.text = "Updating..."
+                    binding.statusText.setText(R.string.store_update_status_updating)
                     binding.statusText.setTextColor(updatingColor)
                     binding.progressIndicator.visibility = View.VISIBLE
                     binding.priceLayout.visibility = View.GONE
@@ -54,9 +56,9 @@ class StoreProgressAdapter : ListAdapter<MainViewModel.StoreUpdateProgress, Stor
                 }
                 MainViewModel.StoreUpdateStatus.SUCCESS -> {
                     binding.statusIcon.setImageResource(R.drawable.ic_check_circle)
-                    val successColor = MaterialColors.getColor(binding.root.context, com.google.android.material.R.attr.colorSecondary, ContextCompat.getColor(binding.root.context, R.color.colorSuccess))
+                    val successColor = MaterialColors.getColor(context, com.google.android.material.R.attr.colorSecondary, ContextCompat.getColor(context, R.color.colorSuccess))
                     binding.statusIcon.setColorFilter(successColor)
-                    binding.statusText.text = "Success"
+                    binding.statusText.setText(R.string.store_update_status_success)
                     binding.statusText.setTextColor(successColor)
                     binding.progressIndicator.visibility = View.GONE
                     binding.errorMessage.visibility = View.GONE
@@ -64,26 +66,28 @@ class StoreProgressAdapter : ListAdapter<MainViewModel.StoreUpdateProgress, Stor
                     // Show price information if available
                     if (progress.oldPrice != null || progress.newPrice != null) {
                         binding.priceLayout.visibility = View.VISIBLE
-                        binding.oldPriceText.text = if (progress.oldPrice != null) "$${String.format("%.2f", progress.oldPrice)}" else "N/A"
-                        binding.newPriceText.text = if (progress.newPrice != null) "$${String.format("%.2f", progress.newPrice)}" else "N/A"
+                        binding.oldPriceText.text = progress.oldPrice?.let { context.getString(R.string.book_price, it) }
+                            ?: context.getString(R.string.no_price_available_short)
+                        binding.newPriceText.text = progress.newPrice?.let { context.getString(R.string.book_price, it) }
+                            ?: context.getString(R.string.no_price_available_short)
                         
                         // Change text color based on price change
                         when {
                             progress.oldPrice != null && progress.newPrice != null -> {
                                 when {
                                     progress.newPrice < progress.oldPrice -> {
-                                        binding.newPriceText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.colorSuccess))
+                                        binding.newPriceText.setTextColor(ContextCompat.getColor(context, R.color.colorSuccess))
                                     }
                                     progress.newPrice > progress.oldPrice -> {
-                                        binding.newPriceText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.md_theme_light_tertiary))
+                                        binding.newPriceText.setTextColor(ContextCompat.getColor(context, R.color.md_theme_light_tertiary))
                                     }
                                     else -> {
-                                        binding.newPriceText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.date_text_color))
+                                        binding.newPriceText.setTextColor(ContextCompat.getColor(context, R.color.date_text_color))
                                     }
                                 }
                             }
                             else -> {
-                                binding.newPriceText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.link_color))
+                                binding.newPriceText.setTextColor(ContextCompat.getColor(context, R.color.link_color))
                             }
                         }
                     } else {
@@ -92,9 +96,9 @@ class StoreProgressAdapter : ListAdapter<MainViewModel.StoreUpdateProgress, Stor
                 }
                 MainViewModel.StoreUpdateStatus.FAILED -> {
                     binding.statusIcon.setImageResource(R.drawable.ic_error)
-                    val errorColor = MaterialColors.getColor(binding.root.context, AppCompatR.attr.colorError, ContextCompat.getColor(binding.root.context, R.color.md_theme_light_tertiary))
+                    val errorColor = MaterialColors.getColor(context, AppCompatR.attr.colorError, ContextCompat.getColor(context, R.color.md_theme_light_tertiary))
                     binding.statusIcon.setColorFilter(errorColor)
-                    binding.statusText.text = "Failed"
+                    binding.statusText.setText(R.string.store_update_status_failed)
                     binding.statusText.setTextColor(errorColor)
                     binding.progressIndicator.visibility = View.GONE
                     binding.priceLayout.visibility = View.GONE
@@ -109,9 +113,9 @@ class StoreProgressAdapter : ListAdapter<MainViewModel.StoreUpdateProgress, Stor
                 }
                 MainViewModel.StoreUpdateStatus.SKIPPED -> {
                     binding.statusIcon.setImageResource(R.drawable.ic_skip_next)
-                    val skippedColor = MaterialColors.getColor(binding.root.context, com.google.android.material.R.attr.colorOnSurfaceVariant, ContextCompat.getColor(binding.root.context, R.color.date_text_color))
+                    val skippedColor = MaterialColors.getColor(context, com.google.android.material.R.attr.colorOnSurfaceVariant, ContextCompat.getColor(context, R.color.date_text_color))
                     binding.statusIcon.setColorFilter(skippedColor)
-                    binding.statusText.text = "Skipped"
+                    binding.statusText.setText(R.string.store_update_status_skipped)
                     binding.statusText.setTextColor(skippedColor)
                     binding.progressIndicator.visibility = View.GONE
                     binding.priceLayout.visibility = View.GONE

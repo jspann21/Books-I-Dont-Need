@@ -38,6 +38,11 @@
     <string name="unknown_condition">Unknown condition</string>
     <string name="unknown_location">Unknown location</string>
     <string name="seller_details">%1$s • %2$s • %3$s</string>
+    <string name="store_update_status_pending">Pending</string>
+    <string name="store_update_status_updating">Updating...</string>
+    <string name="store_update_status_success">Success</string>
+    <string name="store_update_status_failed">Failed</string>
+    <string name="store_update_status_skipped">Skipped</string>
     <plurals name="store_count_short">
         <item quantity="one">%1$d store</item>
         <item quantity="other">%1$d stores</item>
