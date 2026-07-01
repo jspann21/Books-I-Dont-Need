@@ -71,6 +71,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileWriter
 import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.appcompat.R as AppCompatR
 
 class MainActivity : AppCompatActivity(),
@@ -693,7 +694,7 @@ class MainActivity : AppCompatActivity(),
         savingToLibraryDotsJob = lifecycleScope.launch {
             var dotCount = 0
             while (isActive) {
-                delay(SAVING_TO_LIBRARY_DOT_INTERVAL_MS)
+                delay(SAVING_TO_LIBRARY_DOT_INTERVAL_MS.milliseconds)
                 dotCount = (dotCount + 1) % (SAVING_TO_LIBRARY_DOT_SLOTS + 1)
                 statusText.setSavingToLibraryDots(dotCount)
             }

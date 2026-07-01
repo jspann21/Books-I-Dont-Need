@@ -20,16 +20,4 @@ class InputBarView @JvmOverloads constructor(
     val addBookButton: FloatingActionButton get() = binding.addBookButton
     val addBookStatusText: TextView get() = binding.addBookStatusText
 
-    fun setOnAddBookClickListener(listener: () -> Unit) {
-        binding.addBookButton.setOnClickListener { listener() }
-    }
-
-    fun setStatusText(text: String?, visible: Boolean) {
-        binding.addBookStatusText.text = text ?: ""
-        binding.addBookStatusText.visibility = if (visible && !text.isNullOrBlank()) VISIBLE else GONE
-    }
-
-    fun clearUrl() {
-        binding.urlEditText.text = null
-    }
-} 
+}
