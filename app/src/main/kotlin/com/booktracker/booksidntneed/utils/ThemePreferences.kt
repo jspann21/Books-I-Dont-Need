@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.edit
 
 enum class AppThemeMode(val preferenceValue: String) {
     SYSTEM("system"),
@@ -38,9 +39,9 @@ object ThemePreferences {
     fun setThemeMode(context: Context, mode: AppThemeMode) {
         context.applicationContext
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_THEME_MODE, mode.preferenceValue)
-            .commit()
+            .edit {
+                putString(KEY_THEME_MODE, mode.preferenceValue)
+            }
     }
 
     fun applyTheme(mode: AppThemeMode) {
