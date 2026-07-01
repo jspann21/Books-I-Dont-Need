@@ -32,7 +32,7 @@ class StoresAdapter(
 
             // Price
             if (store.price != null) {
-                binding.storePriceTextView.text = String.format("$%.2f", store.price)
+                binding.storePriceTextView.text = binding.root.context.getString(R.string.book_price, store.price)
             } else {
                 binding.storePriceTextView.text = binding.root.context.getString(R.string.no_price_available)
             }
