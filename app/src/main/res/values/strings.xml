@@ -163,6 +163,7 @@
     <string name="update_all_now">Update all prices now</string>
     <string name="update_all_now_desc">Runs a full refresh of all book prices. You will receive a notification when it finishes. Please avoid running too frequently.</string>
     <string name="full_price_update_progress_title">Updating all prices</string>
+    <string name="full_price_update_progress_count">%1$d/%2$d</string>
     <string name="confirm_update_all_title">Run full price update?</string>
     <string name="confirm_update_all_message">This may take a while. You will receive a notification when it completes. Please avoid running it too often.</string>
     <string name="run_now">Run now</string>

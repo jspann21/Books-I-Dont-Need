@@ -484,7 +484,7 @@ class MainActivity : AppCompatActivity(),
         binding.fullPriceUpdateProgressTitle.text = getString(R.string.full_price_update_progress_title)
 
         if (total > 0) {
-            binding.fullPriceUpdateProgressCount.text = "$current/$total"
+            binding.fullPriceUpdateProgressCount.text = getString(R.string.full_price_update_progress_count, current, total)
             binding.fullPriceUpdateProgressBar.isIndeterminate = false
             binding.fullPriceUpdateProgressBar.max = total
             binding.fullPriceUpdateProgressBar.progress = current.coerceIn(0, total)
