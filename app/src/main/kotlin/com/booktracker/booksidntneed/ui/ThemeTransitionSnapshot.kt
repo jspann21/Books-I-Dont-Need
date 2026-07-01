@@ -12,6 +12,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.widget.ImageView
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withTranslation
 import com.booktracker.booksidntneed.utils.AppThemeMode
 import com.booktracker.booksidntneed.utils.ThemePreferences
 
@@ -103,10 +105,9 @@ object ThemeTransitionSnapshot {
         val top = (dialogLocation[1] - activityLocation[1]).toFloat()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val dialogBitmap = Bitmap.createBitmap(
+            val dialogBitmap = createBitmap(
                 dialogDecor.width,
-                dialogDecor.height,
-                Bitmap.Config.ARGB_8888
+                dialogDecor.height
             )
             runCatching {
                 PixelCopy.request(
@@ -194,8 +195,9 @@ object ThemeTransitionSnapshot {
         }
 
         val bitmap = runCatching {
-            val bitmap = Bitmap.createBitmap(
-                decor.width, decor.height, Bitmap.Config.ARGB_8888
+            val bitmap = createBitmap(
+                decor.width,
+                decor.height
             )
             decor.draw(Canvas(bitmap))
             bitmap
@@ -231,10 +233,9 @@ object ThemeTransitionSnapshot {
         if (decor == null || decor.width <= 0 || decor.height <= 0) return null
 
         return runCatching {
-            val bitmap = Bitmap.createBitmap(
+            val bitmap = createBitmap(
                 decor.width,
-                decor.height,
-                Bitmap.Config.ARGB_8888
+                decor.height
             )
             val canvas = Canvas(bitmap)
             decor.draw(canvas)
@@ -250,10 +251,9 @@ object ThemeTransitionSnapshot {
         dimAmount: Float
     ) {
         val dialogBitmap = runCatching {
-            Bitmap.createBitmap(
+            createBitmap(
                 dialogDecor.width,
-                dialogDecor.height,
-                Bitmap.Config.ARGB_8888
+                dialogDecor.height
             ).also { dialogDecor.draw(Canvas(it)) }
         }.getOrNull() ?: return
 
@@ -302,13 +302,12 @@ object ThemeTransitionSnapshot {
         activityDecor.getLocationOnScreen(activityLocation)
         dialogDecor.getLocationOnScreen(dialogLocation)
 
-        canvas.save()
-        canvas.translate(
+        canvas.withTranslation(
             (dialogLocation[0] - activityLocation[0]).toFloat(),
             (dialogLocation[1] - activityLocation[1]).toFloat()
-        )
-        dialogDecor.draw(canvas)
-        canvas.restore()
+        ) {
+            dialogDecor.draw(this)
+        }
     }
 
     private fun drawCachedDialogLayer(canvas: Canvas): Boolean {
