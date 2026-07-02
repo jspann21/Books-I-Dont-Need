@@ -1,6 +1,7 @@
 package com.booktracker.booksidntneed.network
 
 import android.util.Log
+import com.booktracker.booksidntneed.utils.ErrorReporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -107,6 +108,14 @@ class WebScrapingService {
             ScrapingResult.Error(errorMessage)
         } catch (e: SSLException) {
             Log.e("BookTracker", "WebScraping: SSL error", e)
+            ErrorReporter.recordException(
+                e,
+                "Web scraping SSL error",
+                mapOf(
+                    "source" to "web_scraping_ssl",
+                    "store_host" to hostFrom(url)
+                )
+            )
             progressCallback?.onError("Fetching Document", "Security error: Could not establish secure connection")
             ScrapingResult.Error("Security error: Could not establish secure connection")
         } catch (e: HttpStatusException) {
@@ -122,9 +131,23 @@ class WebScrapingService {
             ScrapingResult.Error(errorMessage)
         } catch (e: Exception) {
             Log.e("BookTracker", "WebScraping: Unexpected error", e)
+            ErrorReporter.recordException(
+                e,
+                "Unexpected web scraping error",
+                mapOf(
+                    "source" to "web_scraping_unexpected",
+                    "store_host" to hostFrom(url)
+                )
+            )
             progressCallback?.onError("Unknown", "Unexpected error: ${e.message ?: "Unknown error occurred"}")
             ScrapingResult.Error("Unexpected error: ${e.message ?: "Unknown error occurred"}")
         }
+    }
+
+    private fun hostFrom(url: String): String {
+        return runCatching { URL(url).host }
+            .getOrDefault("unknown")
+            .ifBlank { "unknown" }
     }
 
     private fun isValidUrl(url: String): Boolean {

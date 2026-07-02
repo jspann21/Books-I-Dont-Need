@@ -20,6 +20,7 @@ import com.booktracker.booksidntneed.network.ScrapingProgressCallback
 import com.booktracker.booksidntneed.network.WebScrapingService
 import com.booktracker.booksidntneed.repository.BookRepository
 import com.booktracker.booksidntneed.repository.CategoryManager
+import com.booktracker.booksidntneed.utils.ErrorReporter
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -223,6 +224,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                     }
                 }
             } catch (e: Exception) {
+                recordUiException(e, "confirm_same_book")
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.failed_to_add_to_existing_book, MessageType.ERROR, listOf(e.message ?: ""))) }
             } finally {
                 _loadingState.value = LoadingState.IDLE
@@ -263,6 +265,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                     }
                 }
             } catch (e: Exception) {
+                recordUiException(e, "confirm_different_book")
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.failed_to_add_new_book, MessageType.ERROR, listOf(e.message ?: ""))) }
             } finally {
                 _loadingState.value = LoadingState.IDLE
@@ -558,6 +561,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 _loadingState.value = LoadingState.IDLE
                 _detailedStatus.value = null
                 Log.e("BookTracker", "ViewModel: Unexpected error: ${e.message}", e)
+                recordUiException(e, "add_book_from_url")
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.unexpected_error, MessageType.ERROR, listOf(e.message ?: ""))) }
             } finally {
                 // Reset to idle after a brief success state display
@@ -663,6 +667,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 _loadingState.value = LoadingState.IDLE
                 _detailedStatus.value = null
                 Log.e("BookTracker", "ViewModel: Manual book unexpected error: ${e.message}", e)
+                recordUiException(e, "add_book_manually")
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.unexpected_error, MessageType.ERROR, listOf(e.message ?: ""))) }
             } finally {
                 // Reset to idle after a brief success state display
@@ -689,6 +694,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 repository.deleteBook(bookWithStores.book)
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.book_deleted_successfully, MessageType.SUCCESS)) }
             } catch (e: Exception) {
+                recordUiException(e, "delete_book")
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.failed_to_delete_book, MessageType.ERROR, listOf(e.message ?: ""))) }
             }
         }
@@ -700,6 +706,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 repository.updateBookCategory(bookId, newCategory)
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.category_updated_successfully, MessageType.SUCCESS)) }
             } catch (e: Exception) {
+                recordUiException(e, "update_book_category")
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.failed_to_update_category, MessageType.ERROR, listOf(e.message ?: ""))) }
             }
         }
@@ -711,6 +718,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 repository.deleteStore(store)
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.store_removed_successfully, MessageType.SUCCESS, listOf(store.storeName))) }
             } catch (e: Exception) {
+                recordUiException(e, "delete_store")
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.failed_to_remove_store, MessageType.ERROR, listOf(e.message ?: ""))) }
             }
         }
@@ -900,6 +908,11 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                                 }
                             }
                         } catch (e: Exception) {
+                            recordUiException(
+                                e,
+                                "update_single_store_price",
+                                mapOf("store_host" to hostFrom(store.storeUrl))
+                            )
                             updatedProgress[index] = updatedProgress[index].copy(
                                 status = StoreUpdateStatus.FAILED,
                                 errorMessage = "Unexpected error: ${e.message}"
@@ -926,6 +939,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 
                 // Note: No toast messages for price updates - results are shown in the dialog
             } catch (e: Exception) {
+                recordUiException(e, "update_book_prices")
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.failed_to_update_prices, MessageType.ERROR, listOf(e.message ?: ""))) }
                 _priceUpdateProgress.value = _priceUpdateProgress.value?.copy(
                     isActive = false,
@@ -1105,6 +1119,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 
             } catch (e: Exception) {
                 _loadingState.value = LoadingState.IDLE
+                recordUiException(e, "selected_seller")
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.failed_to_add_book_from_selected_seller, MessageType.ERROR, listOf(e.message ?: ""))) }
             } finally {
                 if (_loadingState.value == LoadingState.SUCCESS) {
@@ -1157,6 +1172,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 triggerScrollToBook(book.id)
                 isSuccess = true
             } catch (e: Exception) {
+                recordUiException(e, "update_book")
                 viewModelScope.launch { _uiMessage.emit(UiMessage(R.string.failed_to_update_book, MessageType.ERROR, listOf(e.message ?: ""))) }
             } finally {
                 if (!isSuccess) {
@@ -1298,8 +1314,27 @@ class MainViewModel(private val repository: BookRepository, private val app: App
             )
         } catch (e: Exception) {
             Log.e("BookTracker", "ViewModel: Import failed", e)
+            recordUiException(e, "import_data")
             throw e
         }
+    }
+
+    private fun recordUiException(
+        throwable: Throwable,
+        source: String,
+        extraKeys: Map<String, String> = emptyMap()
+    ) {
+        ErrorReporter.recordException(
+            throwable,
+            "UI workflow failed: $source",
+            mapOf("source" to source) + extraKeys
+        )
+    }
+
+    private fun hostFrom(url: String?): String {
+        return runCatching { java.net.URL(url.orEmpty()).host }
+            .getOrDefault("unknown")
+            .ifBlank { "unknown" }
     }
     
     private fun createBookKey(book: Book): String {

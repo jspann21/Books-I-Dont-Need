@@ -13,6 +13,7 @@ import com.booktracker.booksidntneed.model.Category
 import com.booktracker.booksidntneed.network.ParsedBookInfo
 import com.booktracker.booksidntneed.network.ScrapingProgressCallback
 import com.booktracker.booksidntneed.network.WebScrapingService
+import com.booktracker.booksidntneed.utils.ErrorReporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.Serializable
@@ -163,6 +164,14 @@ class BookRepository(
                     }
                 }
             } catch (e: Exception) {
+                ErrorReporter.recordException(
+                    e,
+                    "Failed to add book from URL",
+                    mapOf(
+                        "source" to "repository_add_book_url",
+                        "store_host" to hostFrom(url)
+                    )
+                )
                 BookAddResult.Error("Failed to save book: ${e.message}")
             }
         }
@@ -183,6 +192,11 @@ class BookRepository(
                     BookAddResult.Created(bookId)
                 }
             } catch (e: Exception) {
+                ErrorReporter.recordException(
+                    e,
+                    "Failed to add parsed book",
+                    mapOf("source" to "repository_add_parsed_book")
+                )
                 BookAddResult.Error("Failed to save book: ${e.message}")
             }
         }
@@ -481,6 +495,11 @@ class BookRepository(
                 
                 BookAddResult.Created(bookId)
             } catch (e: Exception) {
+                ErrorReporter.recordException(
+                    e,
+                    "Failed to add manual book",
+                    mapOf("source" to "repository_add_manual_book")
+                )
                 BookAddResult.Error("Failed to save book: ${e.message}")
             }
         }
@@ -497,6 +516,11 @@ class BookRepository(
             try {
                 addStoreToExistingBookManual(existingBookId, storeName, storeUrl, price)
             } catch (e: Exception) {
+                ErrorReporter.recordException(
+                    e,
+                    "Failed to add store to existing book",
+                    mapOf("source" to "repository_add_existing_book")
+                )
                 BookAddResult.Error("Failed to add store to existing book: ${e.message}")
             }
         }
@@ -546,6 +570,11 @@ class BookRepository(
                 
                 BookAddResult.Created(bookId)
             } catch (e: Exception) {
+                ErrorReporter.recordException(
+                    e,
+                    "Failed to force add book",
+                    mapOf("source" to "repository_force_add_book")
+                )
                 BookAddResult.Error("Failed to save book: ${e.message}")
             }
         }
@@ -640,6 +669,14 @@ class BookRepository(
                 }
                 
             } catch (e: Exception) {
+                ErrorReporter.recordException(
+                    e,
+                    "Failed to update one store price",
+                    mapOf(
+                        "source" to "repository_update_store_price",
+                        "store_host" to hostFrom(store.storeUrl)
+                    )
+                )
                 return@withContext SingleStoreUpdateResult.Failed(e.message ?: "Unknown error occurred")
             }
         }
@@ -713,5 +750,11 @@ class BookRepository(
         val bookId = bookDao.insertBook(book)
         Log.d("BookTracker", "BookRepository: New book inserted with ID: $bookId")
         return bookId
+    }
+
+    private fun hostFrom(url: String?): String {
+        return runCatching { java.net.URL(url.orEmpty()).host }
+            .getOrDefault("unknown")
+            .ifBlank { "unknown" }
     }
 } 

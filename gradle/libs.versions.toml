@@ -23,6 +23,9 @@ recyclerview = "1.4.0"
 retrofit2 = "3.0.0"
 room = "2.8.4"
 workRuntimeKtx = "2.11.2"
+firebaseBom = "34.15.0"
+firebaseCrashlyticsPlugin = "3.0.7"
+googleServices = "4.5.0"
 
 [libraries]
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activityKtx" }
@@ -42,6 +45,9 @@ androidx-room-runtime = { group = "androidx.room", name = "room-runtime", versio
 androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
 converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit2" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -55,6 +61,8 @@ retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = 
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsPlugin" }
 google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "googleDevtoolsKsp" }
+google-gms-google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 gradle-toolchains-foojay-resolver-convention = { id = "org.gradle.toolchains.foojay-resolver-convention", version.ref = "gradleToolchainsFoojayResolverConvention" }
 jetbrains-kotlin-plugin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "jetbrainsKotlinPluginParcelize" }

@@ -24,10 +24,15 @@ jobs:
       APK_NAME: books-i-dont-need-1.0.0.apk
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
       SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY }}
+      FIREBASE_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Write Firebase config
+        if: ${{ env.FIREBASE_GOOGLE_SERVICES_JSON != '' }}
+        run: printf '%s' "$FIREBASE_GOOGLE_SERVICES_JSON" > app/google-services.json
 
       - name: Set up JDK
         uses: actions/setup-java@v4

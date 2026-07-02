@@ -18,6 +18,7 @@ import com.booktracker.booksidntneed.BookTrackerApplication
 import com.booktracker.booksidntneed.model.BookWithStores
 import com.booktracker.booksidntneed.repository.BookRepository
 import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
+import com.booktracker.booksidntneed.utils.ErrorReporter
 import com.booktracker.booksidntneed.utils.PriceChangeEntry
 import com.booktracker.booksidntneed.utils.UpdateSummary
 import kotlinx.coroutines.Dispatchers
@@ -144,6 +145,14 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                         } catch (e: Exception) {
                             failedUpdates.incrementAndGet()
                             Log.e(TAG, "Failed to update store for book '${book.book.title}' (${store.storeName}): ${e.message}")
+                            ErrorReporter.recordException(
+                                e,
+                                "Background price update failed for one store",
+                                mapOf(
+                                    "source" to "auto_update_store",
+                                    "store_host" to hostFrom(store.storeUrl)
+                                )
+                            )
                         } finally {
                             val processed = storesProcessed.incrementAndGet()
                             updateProgress(processed, totalStores, book.book.title)
@@ -175,6 +184,11 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "AutoUpdateWorker: Failed", e)
+            ErrorReporter.recordException(
+                e,
+                "Background price update worker failed",
+                mapOf("source" to "auto_update_worker")
+            )
             Result.retry()
         }
     }
@@ -217,6 +231,11 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 )
             } catch (e: SecurityException) {
                 Log.e(TAG, "SecurityException when updating notification: ${e.message}")
+                ErrorReporter.recordException(
+                    e,
+                    "Unable to update background progress notification",
+                    mapOf("source" to "auto_update_notification")
+                )
             }
         } else if (!notificationPermissionLogged) {
             Log.d(TAG, "Skipping progress notification update; POST_NOTIFICATIONS permission not granted.")
@@ -239,9 +258,25 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             setForeground(foregroundInfo)
         } catch (e: IllegalStateException) {
             Log.w(TAG, "Unable to promote auto update to foreground work; continuing as regular work.", e)
+            ErrorReporter.recordException(
+                e,
+                "Unable to promote auto update to foreground work",
+                mapOf("source" to "auto_update_foreground")
+            )
         } catch (e: SecurityException) {
             Log.w(TAG, "Missing permission for foreground auto update; continuing as regular work.", e)
+            ErrorReporter.recordException(
+                e,
+                "Missing permission for foreground auto update",
+                mapOf("source" to "auto_update_foreground")
+            )
         }
+    }
+
+    private fun hostFrom(url: String): String {
+        return runCatching { java.net.URL(url).host }
+            .getOrDefault("unknown")
+            .ifBlank { "unknown" }
     }
 
     private data class PriceUpdateTarget(
