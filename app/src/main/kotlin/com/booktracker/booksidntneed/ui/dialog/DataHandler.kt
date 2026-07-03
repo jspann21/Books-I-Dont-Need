@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import com.booktracker.booksidntneed.R
 import com.booktracker.booksidntneed.ui.MainViewModel
 import com.booktracker.booksidntneed.utils.DataExportService
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -76,19 +77,21 @@ class DataHandler(
                 }
                 when (importResult) {
                     is DataExportService.ImportResult.Success -> {
-                        val result = withContext(Dispatchers.IO) {
-                            viewModel.importData(importResult.books, importResult.stores, importResult.categories, importResult.storesByBookKey)
+                        val preview = withContext(Dispatchers.IO) {
+                            viewModel.previewImport(importResult.books, importResult.categories, importResult.storesByBookKey)
                         }
-                        val message = buildString {
-                            appendLine(activity.getString(R.string.import_success))
-                            appendLine(activity.getString(R.string.books_imported, result.booksImported))
-                            appendLine(activity.getString(R.string.stores_imported, result.storesImported))
-                            appendLine(activity.getString(R.string.categories_imported, result.categoriesImported))
-                            if (result.duplicatesMerged > 0) {
-                                appendLine(activity.getString(R.string.duplicates_merged, result.duplicatesMerged))
+                        showImportPreviewDialog(preview) {
+                            activity.lifecycleScope.launch {
+                                try {
+                                    val result = withContext(Dispatchers.IO) {
+                                        viewModel.importData(importResult.books, importResult.stores, importResult.categories, importResult.storesByBookKey)
+                                    }
+                                    onShowImportResult(buildImportResultMessage(result))
+                                } catch (e: Exception) {
+                                    Toast.makeText(activity, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                }
                             }
                         }
-                        onShowImportResult(message)
                     }
                     is DataExportService.ImportResult.Error -> {
                         Toast.makeText(activity, "Import failed: ${importResult.message}", Toast.LENGTH_LONG).show()
@@ -98,6 +101,48 @@ class DataHandler(
                 Toast.makeText(activity, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
                 // No need to reset loading here; ViewModel handles loadingState
+            }
+        }
+    }
+
+    private fun showImportPreviewDialog(preview: MainViewModel.ImportPreview, onConfirmed: () -> Unit) {
+        MaterialAlertDialogBuilder(activity)
+            .setTitle(R.string.import_preview_title)
+            .setMessage(buildImportPreviewMessage(preview))
+            .setPositiveButton(R.string.continue_import) { _, _ -> onConfirmed() }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun buildImportPreviewMessage(preview: MainViewModel.ImportPreview): String {
+        return buildString {
+            appendLine(activity.getString(R.string.books_will_be_added, preview.booksToAdd))
+            appendLine(activity.getString(R.string.books_will_be_merged, preview.booksToMerge))
+            appendLine(activity.getString(R.string.store_listings_will_be_added, preview.storesToAdd))
+            appendLine(activity.getString(R.string.store_listings_will_be_updated, preview.storesToUpdate))
+            if (preview.storesUnchanged > 0) {
+                appendLine(activity.getString(R.string.store_listings_will_be_unchanged, preview.storesUnchanged))
+            }
+            appendLine(activity.getString(R.string.categories_will_be_added, preview.categoriesToAdd))
+            appendLine()
+            append(activity.getString(R.string.import_preview_footer))
+        }
+    }
+
+    private fun buildImportResultMessage(result: MainViewModel.ImportResult): String {
+        return buildString {
+            appendLine(activity.getString(R.string.import_success))
+            appendLine(activity.getString(R.string.books_imported, result.booksImported))
+            appendLine(activity.getString(R.string.store_listings_added, result.storesImported))
+            if (result.storesUpdated > 0) {
+                appendLine(activity.getString(R.string.store_listings_updated, result.storesUpdated))
+            }
+            if (result.storesUnchanged > 0) {
+                appendLine(activity.getString(R.string.store_listings_unchanged, result.storesUnchanged))
+            }
+            appendLine(activity.getString(R.string.categories_imported, result.categoriesImported))
+            if (result.duplicatesMerged > 0) {
+                appendLine(activity.getString(R.string.duplicates_merged, result.duplicatesMerged))
             }
         }
     }

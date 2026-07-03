@@ -24,13 +24,22 @@ class ResultDialogFragment : DialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val args = requireArguments()
         val message = args.getString("message") ?: ""
+        val title = message.lineSequence().firstOrNull()?.takeIf { it.isNotBlank() && message.contains('\n') }
+        val body = if (title != null) {
+            message.lineSequence().drop(1).joinToString("\n").trimStart()
+        } else {
+            message
+        }
         val dialogTag = tag
-        return MaterialAlertDialogBuilder(requireContext())
-            .setMessage(message)
+        val builder = MaterialAlertDialogBuilder(requireContext())
+            .setMessage(body)
             .setPositiveButton("OK") { _, _ ->
                 listener?.onResultOk(dialogTag)
             }
-            .create()
+        if (title != null) {
+            builder.setTitle(title)
+        }
+        return builder.create()
     }
 
     companion object {

@@ -1243,6 +1243,8 @@ class MainViewModel(private val repository: BookRepository, private val app: App
         return try {
             var booksImported = 0
             var storesImported = 0
+            var storesUpdated = 0
+            var storesUnchanged = 0
             var categoriesImported = 0
             var duplicatesMerged = 0
 
@@ -1263,21 +1265,18 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 books.forEach { bookToImport ->
                     val bookKey = createBookKey(bookToImport)
                     val bookStores = storesByBookKey[bookKey] ?: emptyList()
-                    val isbn13 = bookToImport.isbn13
-                    val isbn10 = bookToImport.isbn10
-                    val existingBook = when {
-                        !isbn13.isNullOrEmpty() -> repository.getBookByISBN13(isbn13)
-                        !isbn10.isNullOrEmpty() -> repository.getBookByISBN10(isbn10)
-                        else -> repository.getBookByTitleAndAuthor(bookToImport.title, bookToImport.author)
-                    }
+                    val existingBook = findExistingImportBook(bookToImport)
                     if (existingBook == null) {
                         // New book
                         val newBookId = repository.insertBook(bookToImport)
                         booksImported++
                         val storesForNewBook = bookStores.map { it.copy(bookId = newBookId) }
-                        if (storesForNewBook.isNotEmpty()) {
-                            repository.insertBookStoresInTransaction(storesForNewBook)
-                            storesImported += storesForNewBook.size
+                        storesForNewBook.forEach { store ->
+                            when (repository.upsertBookStoreForImport(store)) {
+                                BookRepository.StoreImportResult.Added -> storesImported++
+                                BookRepository.StoreImportResult.Updated -> storesUpdated++
+                                BookRepository.StoreImportResult.Unchanged -> storesUnchanged++
+                            }
                         }
                     } else {
                         // Merge with existing book
@@ -1294,9 +1293,12 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                         repository.updateBook(mergedBook)
                         duplicatesMerged++
                         val storesForExistingBook = bookStores.map { it.copy(bookId = existingBook.id) }
-                        if (storesForExistingBook.isNotEmpty()) {
-                            repository.insertBookStoresInTransaction(storesForExistingBook)
-                            storesImported += storesForExistingBook.size
+                        storesForExistingBook.forEach { store ->
+                            when (repository.upsertBookStoreForImport(store)) {
+                                BookRepository.StoreImportResult.Added -> storesImported++
+                                BookRepository.StoreImportResult.Updated -> storesUpdated++
+                                BookRepository.StoreImportResult.Unchanged -> storesUnchanged++
+                            }
                         }
                     }
                 }
@@ -1304,11 +1306,15 @@ class MainViewModel(private val repository: BookRepository, private val app: App
             Log.d("BookTracker", "ViewModel: Import completed successfully:")
             Log.d("BookTracker", "ViewModel:   - Books imported: $booksImported")
             Log.d("BookTracker", "ViewModel:   - Stores imported: $storesImported")
+            Log.d("BookTracker", "ViewModel:   - Stores updated: $storesUpdated")
+            Log.d("BookTracker", "ViewModel:   - Stores unchanged: $storesUnchanged")
             Log.d("BookTracker", "ViewModel:   - Categories imported: $categoriesImported")
             Log.d("BookTracker", "ViewModel:   - Duplicates merged: $duplicatesMerged")
             ImportResult(
                 booksImported = booksImported,
                 storesImported = storesImported,
+                storesUpdated = storesUpdated,
+                storesUnchanged = storesUnchanged,
                 categoriesImported = categoriesImported,
                 duplicatesMerged = duplicatesMerged
             )
@@ -1316,6 +1322,71 @@ class MainViewModel(private val repository: BookRepository, private val app: App
             Log.e("BookTracker", "ViewModel: Import failed", e)
             recordUiException(e, "import_data")
             throw e
+        }
+    }
+
+    suspend fun previewImport(books: List<Book>, categories: List<Category>, storesByBookKey: Map<String, List<BookStore>>): ImportPreview {
+        Log.d("BookTracker", "ViewModel: Building import preview - Books: ${books.size}, Categories: ${categories.size}")
+        var booksToAdd = 0
+        var booksToMerge = 0
+        var storesToAdd = 0
+        var storesToUpdate = 0
+        var storesUnchanged = 0
+        var categoriesToAdd = 0
+
+        categories.forEach { category ->
+            if (repository.getCategoryByName(category.name) == null) {
+                categoriesToAdd++
+            }
+        }
+
+        books.forEach { bookToImport ->
+            val bookStores = storesByBookKey[createBookKey(bookToImport)] ?: emptyList()
+            val existingBook = findExistingImportBook(bookToImport)
+            if (existingBook == null) {
+                booksToAdd++
+                storesToAdd += bookStores.size
+            } else {
+                booksToMerge++
+                bookStores.forEach { importedStore ->
+                    val existingStore = repository.getStoreByBookIdAndStoreName(existingBook.id, importedStore.storeName)
+                    if (existingStore == null) {
+                        storesToAdd++
+                    } else {
+                        val updatedStore = existingStore.copy(
+                            storeUrl = importedStore.storeUrl,
+                            price = importedStore.price,
+                            currency = importedStore.currency,
+                            availability = importedStore.availability,
+                            lastUpdated = importedStore.lastUpdated
+                        )
+                        if (updatedStore != existingStore) {
+                            storesToUpdate++
+                        } else {
+                            storesUnchanged++
+                        }
+                    }
+                }
+            }
+        }
+
+        return ImportPreview(
+            booksToAdd = booksToAdd,
+            booksToMerge = booksToMerge,
+            storesToAdd = storesToAdd,
+            storesToUpdate = storesToUpdate,
+            storesUnchanged = storesUnchanged,
+            categoriesToAdd = categoriesToAdd
+        )
+    }
+
+    private suspend fun findExistingImportBook(book: Book): Book? {
+        val isbn13 = book.isbn13
+        val isbn10 = book.isbn10
+        return when {
+            !isbn13.isNullOrEmpty() -> repository.getBookByISBN13(isbn13)
+            !isbn10.isNullOrEmpty() -> repository.getBookByISBN10(isbn10)
+            else -> repository.getBookByTitleAndAuthor(book.title, book.author)
         }
     }
 
@@ -1354,8 +1425,19 @@ class MainViewModel(private val repository: BookRepository, private val app: App
     data class ImportResult(
         val booksImported: Int,
         val storesImported: Int,
+        val storesUpdated: Int,
+        val storesUnchanged: Int,
         val categoriesImported: Int,
         val duplicatesMerged: Int
+    )
+
+    data class ImportPreview(
+        val booksToAdd: Int,
+        val booksToMerge: Int,
+        val storesToAdd: Int,
+        val storesToUpdate: Int,
+        val storesUnchanged: Int,
+        val categoriesToAdd: Int
     )
     
     /**

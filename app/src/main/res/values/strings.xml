@@ -76,8 +76,20 @@
     <string name="save_file">Save CSV file</string>
     <string name="books_imported">%d books imported</string>
     <string name="stores_imported">%d stores imported</string>
+    <string name="store_listings_added">%d store listings added</string>
+    <string name="store_listings_updated">%d store listings updated</string>
+    <string name="store_listings_unchanged">%d store listings unchanged</string>
     <string name="categories_imported">%d categories imported</string>
     <string name="duplicates_merged">%d duplicates merged</string>
+    <string name="import_preview_title">Import CSV?</string>
+    <string name="books_will_be_added">%d new books will be added</string>
+    <string name="books_will_be_merged">%d existing books will be merged</string>
+    <string name="store_listings_will_be_added">%d store listings will be added</string>
+    <string name="store_listings_will_be_updated">%d store listings will be updated</string>
+    <string name="store_listings_will_be_unchanged">%d store listings are already up to date</string>
+    <string name="categories_will_be_added">%d categories will be added</string>
+    <string name="import_preview_footer">Matching books are found by ISBN first, then by exact title and author. Continue?</string>
+    <string name="continue_import">Continue</string>
     
     <!-- About -->
 

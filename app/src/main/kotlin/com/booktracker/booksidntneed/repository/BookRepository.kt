@@ -731,6 +731,29 @@ class BookRepository(
         Log.d("BookTracker", "BookRepository: Bulk inserting ${bookStores.size} book stores in transaction")
         bookStoreDao.insertStoresInTransaction(bookStores)
     }
+
+    suspend fun upsertBookStoreForImport(bookStore: BookStore): StoreImportResult {
+        val existingStore = bookStoreDao.getStoreForBook(bookStore.bookId, bookStore.storeName)
+        if (existingStore == null) {
+            bookStoreDao.insertStore(bookStore)
+            return StoreImportResult.Added
+        }
+
+        val updatedStore = existingStore.copy(
+            storeUrl = bookStore.storeUrl,
+            price = bookStore.price,
+            currency = bookStore.currency,
+            availability = bookStore.availability,
+            lastUpdated = bookStore.lastUpdated
+        )
+
+        return if (updatedStore != existingStore) {
+            bookStoreDao.updateStore(updatedStore)
+            StoreImportResult.Updated
+        } else {
+            StoreImportResult.Unchanged
+        }
+    }
     
     suspend fun insertCategory(category: Category) {
         Log.d("BookTracker", "BookRepository: Inserting category: ${category.name}")
@@ -753,5 +776,11 @@ class BookRepository(
         return runCatching { java.net.URL(url.orEmpty()).host }
             .getOrDefault("unknown")
             .ifBlank { "unknown" }
+    }
+
+    enum class StoreImportResult {
+        Added,
+        Updated,
+        Unchanged
     }
 } 

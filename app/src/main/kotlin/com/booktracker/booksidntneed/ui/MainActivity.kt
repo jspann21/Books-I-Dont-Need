@@ -60,6 +60,7 @@ import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
 import com.booktracker.booksidntneed.utils.DataExportService
 import com.booktracker.booksidntneed.work.AutoUpdateScheduler
 import com.booktracker.booksidntneed.work.AutoUpdateWorker
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -872,26 +873,15 @@ class MainActivity : AppCompatActivity(),
                 when (importResult) {
                     is DataExportService.ImportResult.Success -> {
                         Log.d("BookTracker", "MainActivity: Import successful - Books: ${importResult.books.size}, Stores: ${importResult.stores.size}, Categories: ${importResult.categories.size}")
-                        
-                        Log.d("BookTracker", "MainActivity: Starting database import")
-                        val result = withContext(Dispatchers.IO) {
-                            viewModel.importData(importResult.books, importResult.stores, importResult.categories, importResult.storesByBookKey)
+                        val preview = withContext(Dispatchers.IO) {
+                            viewModel.previewImport(importResult.books, importResult.categories, importResult.storesByBookKey)
                         }
-                        
-                        Log.d("BookTracker", "MainActivity: Database import completed - Books imported: ${result.booksImported}, Stores imported: ${result.storesImported}, Categories imported: ${result.categoriesImported}, Duplicates merged: ${result.duplicatesMerged}")
-                        
-                        val message = buildString {
-                            appendLine(getString(R.string.import_success))
-                            appendLine(getString(R.string.books_imported, result.booksImported))
-                            appendLine(getString(R.string.stores_imported, result.storesImported))
-                            appendLine(getString(R.string.categories_imported, result.categoriesImported))
-                            if (result.duplicatesMerged > 0) {
-                                appendLine(getString(R.string.duplicates_merged, result.duplicatesMerged))
+                        Log.d("BookTracker", "MainActivity: Import preview built: $preview")
+                        showImportPreviewDialog(preview) {
+                            lifecycleScope.launch {
+                                completeImport(importResult)
                             }
                         }
-                        
-                        Log.d("BookTracker", "MainActivity: Showing import result dialog with message: $message")
-                        showImportResultDialogFragment(message)
                     }
                     is DataExportService.ImportResult.Error -> {
                         Log.e("BookTracker", "MainActivity: Import failed: ${importResult.message}")
@@ -902,6 +892,67 @@ class MainActivity : AppCompatActivity(),
             } catch (e: Exception) {
                 Log.e("BookTracker", "MainActivity: Import process failed", e)
                 Toast.makeText(this@MainActivity, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private suspend fun completeImport(importResult: DataExportService.ImportResult.Success) {
+        try {
+            Log.d("BookTracker", "MainActivity: Starting database import")
+            val result = withContext(Dispatchers.IO) {
+                viewModel.importData(importResult.books, importResult.stores, importResult.categories, importResult.storesByBookKey)
+            }
+
+            Log.d("BookTracker", "MainActivity: Database import completed - Books imported: ${result.booksImported}, Stores added: ${result.storesImported}, Stores updated: ${result.storesUpdated}, Stores unchanged: ${result.storesUnchanged}, Categories imported: ${result.categoriesImported}, Duplicates merged: ${result.duplicatesMerged}")
+
+            val message = buildImportResultMessage(result)
+
+            Log.d("BookTracker", "MainActivity: Showing import result dialog with message: $message")
+            showImportResultDialogFragment(message)
+        } catch (e: Exception) {
+            Log.e("BookTracker", "MainActivity: Import process failed", e)
+            Toast.makeText(this@MainActivity, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun showImportPreviewDialog(preview: MainViewModel.ImportPreview, onConfirmed: () -> Unit) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.import_preview_title)
+            .setMessage(buildImportPreviewMessage(preview))
+            .setPositiveButton(R.string.continue_import) { _, _ -> onConfirmed() }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun buildImportPreviewMessage(preview: MainViewModel.ImportPreview): String {
+        return buildString {
+            appendLine(getString(R.string.books_will_be_added, preview.booksToAdd))
+            appendLine(getString(R.string.books_will_be_merged, preview.booksToMerge))
+            appendLine(getString(R.string.store_listings_will_be_added, preview.storesToAdd))
+            appendLine(getString(R.string.store_listings_will_be_updated, preview.storesToUpdate))
+            if (preview.storesUnchanged > 0) {
+                appendLine(getString(R.string.store_listings_will_be_unchanged, preview.storesUnchanged))
+            }
+            appendLine(getString(R.string.categories_will_be_added, preview.categoriesToAdd))
+            appendLine()
+            append(getString(R.string.import_preview_footer))
+        }
+    }
+
+    private fun buildImportResultMessage(result: MainViewModel.ImportResult): String {
+        return buildString {
+            appendLine(getString(R.string.import_success))
+            appendLine(getString(R.string.books_imported, result.booksImported))
+            appendLine(getString(R.string.store_listings_added, result.storesImported))
+            if (result.storesUpdated > 0) {
+                appendLine(getString(R.string.store_listings_updated, result.storesUpdated))
+            }
+            if (result.storesUnchanged > 0) {
+                appendLine(getString(R.string.store_listings_unchanged, result.storesUnchanged))
+            }
+            appendLine(getString(R.string.categories_imported, result.categoriesImported))
+            if (result.duplicatesMerged > 0) {
+                appendLine(getString(R.string.duplicates_merged, result.duplicatesMerged))
             }
         }
     }
