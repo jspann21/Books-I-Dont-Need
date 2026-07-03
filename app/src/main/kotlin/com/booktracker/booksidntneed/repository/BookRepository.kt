@@ -3,6 +3,7 @@ package com.booktracker.booksidntneed.repository
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
+import androidx.room.withTransaction
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.booktracker.booksidntneed.database.BookDatabase
 import com.booktracker.booksidntneed.model.Book
@@ -30,11 +31,7 @@ class BookRepository(
     private val categoryDao = database.categoryDao()
     
     suspend fun <T> runInTransaction(block: suspend () -> T): T {
-        return withContext(Dispatchers.IO) {
-            database.runInTransaction<T> {
-                kotlinx.coroutines.runBlocking { block() }
-            }
-        }
+        return database.withTransaction(block)
     }
 
     // New optimized filtering and sorting methods using DatabaseView
