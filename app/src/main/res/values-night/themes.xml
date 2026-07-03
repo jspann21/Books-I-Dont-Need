@@ -7,6 +7,8 @@
         <item name="colorOnPrimary">@color/md_theme_dark_onPrimary</item>
         <item name="colorPrimaryContainer">@color/md_theme_dark_primaryContainer</item>
         <item name="colorOnPrimaryContainer">@color/md_theme_dark_onPrimaryContainer</item>
+        <item name="colorContainer">@color/md_theme_dark_primaryContainer</item>
+        <item name="colorOnContainer">@color/md_theme_dark_onPrimaryContainer</item>
         
         <!-- Secondary brand color -->
         <item name="colorSecondary">@color/md_theme_dark_secondary</item>
