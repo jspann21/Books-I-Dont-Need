@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import com.booktracker.booksidntneed.R
 import com.booktracker.booksidntneed.ui.MainViewModel
 import com.booktracker.booksidntneed.utils.DataExportService
+import com.booktracker.booksidntneed.utils.ErrorReporter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -88,17 +89,24 @@ class DataHandler(
                                     }
                                     onShowImportResult(buildImportResultMessage(result))
                                 } catch (e: Exception) {
-                                    Toast.makeText(activity, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                    reportImportFailure(e, "database_write", e.message ?: "Unexpected database import failure")
+                                    showImportFailureDialog(e.message ?: activity.getString(R.string.unexpected_error, "Unknown import error"))
                                 }
                             }
                         }
                     }
                     is DataExportService.ImportResult.Error -> {
-                        Toast.makeText(activity, "Import failed: ${importResult.message}", Toast.LENGTH_LONG).show()
+                        reportImportFailure(
+                            IllegalStateException(importResult.message),
+                            "parse_result",
+                            importResult.message
+                        )
+                        showImportFailureDialog(importResult.message)
                     }
                 }
             } catch (e: Exception) {
-                Toast.makeText(activity, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+                reportImportFailure(e, "parse_or_preview", e.message ?: "Unexpected import failure")
+                showImportFailureDialog(e.message ?: activity.getString(R.string.unexpected_error, "Unknown import error"))
             } finally {
                 // No need to reset loading here; ViewModel handles loadingState
             }
@@ -145,6 +153,26 @@ class DataHandler(
                 appendLine(activity.getString(R.string.duplicates_merged, result.duplicatesMerged))
             }
         }
+    }
+
+    private fun showImportFailureDialog(message: String) {
+        MaterialAlertDialogBuilder(activity)
+            .setTitle(R.string.import_failed)
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun reportImportFailure(throwable: Throwable, phase: String, reason: String) {
+        ErrorReporter.recordException(
+            throwable,
+            "Import failed during $phase",
+            mapOf(
+                "source" to "csv_import",
+                "import_phase" to phase,
+                "failure_reason" to reason
+            )
+        )
     }
 
     fun getFileNameFromUri(uri: Uri): String? {

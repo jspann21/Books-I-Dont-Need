@@ -105,6 +105,15 @@ class DataExportService(private val context: Context) {
             val inputStream = context.contentResolver.openInputStream(uri)
             if (inputStream == null) {
                 Log.e("BookTracker", "DataExportService: Failed to open input stream for URI: $uri")
+                ErrorReporter.recordException(
+                    IllegalStateException("Failed to open import file"),
+                    "CSV import failed before parsing",
+                    mapOf(
+                        "source" to "csv_import",
+                        "import_phase" to "open_input_stream",
+                        "uri_scheme" to (uri.scheme ?: "unknown")
+                    )
+                )
                 return ImportResult.Error("Failed to open file")
             }
             
@@ -189,6 +198,15 @@ class DataExportService(private val context: Context) {
             
         } catch (e: Exception) {
             Log.e("BookTracker", "DataExportService: Failed to import CSV", e)
+            ErrorReporter.recordException(
+                e,
+                "CSV import parsing failed",
+                mapOf(
+                    "source" to "csv_import",
+                    "import_phase" to "parse_csv",
+                    "uri_scheme" to (uri.scheme ?: "unknown")
+                )
+            )
             ImportResult.Error("Failed to import CSV: ${e.message}")
         }
     }

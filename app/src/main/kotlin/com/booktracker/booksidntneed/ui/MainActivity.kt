@@ -58,6 +58,7 @@ import com.booktracker.booksidntneed.ui.dialog.SimpleListDialogFragment
 import com.booktracker.booksidntneed.ui.dialog.SortDialogFragment
 import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
 import com.booktracker.booksidntneed.utils.DataExportService
+import com.booktracker.booksidntneed.utils.ErrorReporter
 import com.booktracker.booksidntneed.work.AutoUpdateScheduler
 import com.booktracker.booksidntneed.work.AutoUpdateWorker
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -885,13 +886,19 @@ class MainActivity : AppCompatActivity(),
                     }
                     is DataExportService.ImportResult.Error -> {
                         Log.e("BookTracker", "MainActivity: Import failed: ${importResult.message}")
-                        Toast.makeText(this@MainActivity, "Import failed: ${importResult.message}", Toast.LENGTH_LONG).show()
+                        reportImportFailure(
+                            IllegalStateException(importResult.message),
+                            "parse_result",
+                            importResult.message
+                        )
+                        showImportFailureDialog(importResult.message)
                     }
                 }
                 
             } catch (e: Exception) {
                 Log.e("BookTracker", "MainActivity: Import process failed", e)
-                Toast.makeText(this@MainActivity, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+                reportImportFailure(e, "parse_or_preview", e.message ?: "Unexpected import failure")
+                showImportFailureDialog(e.message ?: getString(R.string.unexpected_error, "Unknown import error"))
             }
         }
     }
@@ -911,7 +918,8 @@ class MainActivity : AppCompatActivity(),
             showImportResultDialogFragment(message)
         } catch (e: Exception) {
             Log.e("BookTracker", "MainActivity: Import process failed", e)
-            Toast.makeText(this@MainActivity, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+            reportImportFailure(e, "database_write", e.message ?: "Unexpected database import failure")
+            showImportFailureDialog(e.message ?: getString(R.string.unexpected_error, "Unknown import error"))
         }
     }
 
@@ -955,6 +963,26 @@ class MainActivity : AppCompatActivity(),
                 appendLine(getString(R.string.duplicates_merged, result.duplicatesMerged))
             }
         }
+    }
+
+    private fun showImportFailureDialog(message: String) {
+        val dialogFragment = ResultDialogFragment.newInstance(
+            message = message,
+            title = getString(R.string.import_failed)
+        )
+        dialogFragment.show(supportFragmentManager, "import_failure")
+    }
+
+    private fun reportImportFailure(throwable: Throwable, phase: String, reason: String) {
+        ErrorReporter.recordException(
+            throwable,
+            "Import failed during $phase",
+            mapOf(
+                "source" to "csv_import",
+                "import_phase" to phase,
+                "failure_reason" to reason
+            )
+        )
     }
     
     // Helper to get file name from Uri

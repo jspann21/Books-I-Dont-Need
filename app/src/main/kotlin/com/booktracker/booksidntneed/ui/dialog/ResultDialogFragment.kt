@@ -24,9 +24,10 @@ class ResultDialogFragment : DialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val args = requireArguments()
         val message = args.getString("message") ?: ""
-        val title = message.lineSequence().firstOrNull()?.takeIf { it.isNotBlank() && message.contains('\n') }
+        val explicitTitle = args.getString("title")
+        val title = explicitTitle ?: message.lineSequence().firstOrNull()?.takeIf { it.isNotBlank() && message.contains('\n') }
         val body = if (title != null) {
-            message.lineSequence().drop(1).joinToString("\n").trimStart()
+            if (explicitTitle != null) message else message.lineSequence().drop(1).joinToString("\n").trimStart()
         } else {
             message
         }
@@ -43,10 +44,11 @@ class ResultDialogFragment : DialogFragment() {
     }
 
     companion object {
-        fun newInstance(message: String): ResultDialogFragment {
+        fun newInstance(message: String, title: String? = null): ResultDialogFragment {
             val frag = ResultDialogFragment()
             val args = Bundle()
             args.putString("message", message)
+            if (title != null) args.putString("title", title)
             frag.arguments = args
             return frag
         }

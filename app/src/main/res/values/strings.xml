@@ -73,6 +73,7 @@
     <!-- Settings -->
     <string name="export_success">Data exported successfully</string>
     <string name="import_success">Data imported successfully</string>
+    <string name="import_failed">Import failed</string>
     <string name="save_file">Save CSV file</string>
     <string name="books_imported">%d books imported</string>
     <string name="stores_imported">%d stores imported</string>
