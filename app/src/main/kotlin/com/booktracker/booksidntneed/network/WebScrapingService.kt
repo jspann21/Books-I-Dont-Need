@@ -37,6 +37,16 @@ class WebScrapingService {
             progressCallback?.onTaskStarted("Validating URL", 0)
             if (!isValidUrl(url)) {
                 Log.e("BookTracker", "WebScraping: Invalid URL format: $url")
+                ErrorReporter.recordException(
+                    UrlParseFailureException("Invalid submitted URL format"),
+                    "Invalid submitted URL format",
+                    buildFailureKeys(
+                        source = "web_scraping_invalid_url",
+                        originalUrl = url,
+                        finalUrl = url,
+                        strategy = strategy
+                    )
+                )
                 progressCallback?.onError("Validating URL", "Invalid URL format")
                 return@withContext ScrapingResult.Error("Invalid URL format")
             }
@@ -78,6 +88,18 @@ class WebScrapingService {
             } else {
                 val errorMessage = buildParseErrorMessage(document, finalUrl, bookInfo, retriedWithCanonicalUrl)
                 Log.e("BookTracker", "WebScraping: Error - $errorMessage")
+                ErrorReporter.recordException(
+                    UrlParseFailureException(errorMessage),
+                    "Failed to parse submitted URL",
+                    buildFailureKeys(
+                        source = "web_scraping_parse_failure",
+                        originalUrl = url,
+                        finalUrl = finalUrl,
+                        strategy = strategy,
+                        parser = parser,
+                        pageTitle = document.select("title").first()?.text().orEmpty()
+                    )
+                )
                 progressCallback?.onError("Validating Data", errorMessage)
                 ScrapingResult.Error(errorMessage)
             }
@@ -148,6 +170,38 @@ class WebScrapingService {
         return runCatching { URL(url).host }
             .getOrDefault("unknown")
             .ifBlank { "unknown" }
+    }
+
+    private fun buildFailureKeys(
+        source: String,
+        originalUrl: String,
+        finalUrl: String,
+        strategy: StoreRequestStrategy,
+        parser: BookParser? = null,
+        pageTitle: String = ""
+    ): Map<String, String> {
+        return buildMap {
+            put("source", source)
+            put("store_host", hostFrom(finalUrl))
+            put("original_host", hostFrom(originalUrl))
+            put("strategy", strategy.javaClass.simpleName)
+            put("store_name", strategy.storeName)
+            parser?.let {
+                put("parser", it.javaClass.simpleName)
+                put("parser_store", it.getStoreName())
+            }
+            put("url_sample", urlSample(finalUrl))
+            if (pageTitle.isNotBlank()) {
+                put("page_title", pageTitle)
+            }
+        }
+    }
+
+    private fun urlSample(url: String): String {
+        return runCatching {
+            val parsed = URL(RequestStrategyUtils.ensureHttps(url))
+            "${parsed.host}${parsed.path}".ifBlank { "unknown" }
+        }.getOrDefault("invalid_url")
     }
 
     private fun isValidUrl(url: String): Boolean {
@@ -290,6 +344,8 @@ class WebScrapingService {
                 "Could not find required book information (title and author) on this page."
         }
     }
+
+    private class UrlParseFailureException(message: String) : Exception(message)
 
     sealed class ScrapingResult {
         data class Success(val bookInfo: ParsedBookInfo) : ScrapingResult()
