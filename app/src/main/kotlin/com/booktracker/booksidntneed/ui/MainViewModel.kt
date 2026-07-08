@@ -333,12 +333,19 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 append(bookWithStores.stores.joinToString(" ") { it.storeName })
             }.lowercase(Locale.ROOT)
 
+            if (searchableText.contains(normalizedQuery)) {
+                return@filter true
+            }
+
+            if (numericQuery.isBlank()) {
+                return@filter false
+            }
+
             val isbnText = "${book.isbn10.orEmpty()} ${book.isbn13.orEmpty()}"
                 .filter { it.isDigit() || it.equals('x', ignoreCase = true) }
                 .lowercase(Locale.ROOT)
 
-            searchableText.contains(normalizedQuery) ||
-                (numericQuery.isNotBlank() && isbnText.contains(numericQuery))
+            isbnText.contains(numericQuery)
         }
     }
     
