@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit
 import androidx.work.NetworkType
 
 object AutoUpdateScheduler {
-    private const val UNIQUE_WORK_NAME = "daily_price_update"
-    private const val UNIQUE_ONE_TIME_NAME = "daily_price_update_one_time"
+    const val UNIQUE_WORK_NAME = "daily_price_update"
+    const val UNIQUE_ONE_TIME_NAME = "daily_price_update_one_time"
     const val UNIQUE_MANUAL_WORK_NAME = "manual_price_update"
     private const val IMMEDIATE_THRESHOLD_MINUTES = 20L
     private const val PERIODIC_REPEAT_HOURS = 24L

@@ -59,6 +59,7 @@ import com.booktracker.booksidntneed.ui.dialog.SortDialogFragment
 import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
 import com.booktracker.booksidntneed.utils.DataExportService
 import com.booktracker.booksidntneed.utils.ErrorReporter
+import com.booktracker.booksidntneed.work.AutoUpdateNotifier
 import com.booktracker.booksidntneed.work.AutoUpdateScheduler
 import com.booktracker.booksidntneed.work.AutoUpdateWorker
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -169,6 +170,7 @@ class MainActivity : AppCompatActivity(),
 
         setupClickListeners()
         setupObservers()
+        clearStaleAutoUpdateProgressNotification()
         maybeShowRecentPriceChanges()
         registerUpdateReceiver()
         handleIncomingIntent(intent)
@@ -184,8 +186,11 @@ class MainActivity : AppCompatActivity(),
                     val json = AutoUpdatePreferences.recentChangesJson(this@MainActivity).firstOrNull()
                     if (!json.isNullOrBlank()) {
                         val dialog = com.booktracker.booksidntneed.ui.dialog.RecentPriceChangesDialogFragment.newInstance(json)
-                        if (!isFinishing && !isDestroyed) {
-                            dialog.show(supportFragmentManager, "recent_price_changes_dialog")
+                        if (!isFinishing &&
+                            !isDestroyed &&
+                            supportFragmentManager.findFragmentByTag(RECENT_PRICE_CHANGES_DIALOG_TAG) == null
+                        ) {
+                            dialog.show(supportFragmentManager, RECENT_PRICE_CHANGES_DIALOG_TAG)
                         }
                     }
                 }
@@ -206,12 +211,41 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun maybeShowRecentPriceChanges() {
+        if (supportFragmentManager.findFragmentByTag(RECENT_PRICE_CHANGES_DIALOG_TAG) != null) {
+            return
+        }
+
         lifecycleScope.launch {
             val json = AutoUpdatePreferences.recentChangesJson(this@MainActivity).firstOrNull()
             if (!json.isNullOrBlank()) {
                 // Show a dialog listing recent price changes
                 val dialog = com.booktracker.booksidntneed.ui.dialog.RecentPriceChangesDialogFragment.newInstance(json)
-                dialog.show(supportFragmentManager, "recent_price_changes_dialog")
+                if (supportFragmentManager.findFragmentByTag(RECENT_PRICE_CHANGES_DIALOG_TAG) == null) {
+                    dialog.show(supportFragmentManager, RECENT_PRICE_CHANGES_DIALOG_TAG)
+                }
+            }
+        }
+    }
+
+    private fun clearStaleAutoUpdateProgressNotification() {
+        lifecycleScope.launch {
+            val updateIsRunning = withContext(Dispatchers.IO) {
+                runCatching {
+                    val workManager = WorkManager.getInstance(this@MainActivity)
+                    listOf(
+                        AutoUpdateScheduler.UNIQUE_WORK_NAME,
+                        AutoUpdateScheduler.UNIQUE_ONE_TIME_NAME,
+                        AutoUpdateScheduler.UNIQUE_MANUAL_WORK_NAME
+                    ).any { uniqueWorkName ->
+                        workManager.getWorkInfosForUniqueWork(uniqueWorkName)
+                            .get()
+                            .any { workInfo -> workInfo.state == WorkInfo.State.RUNNING }
+                    }
+                }.getOrDefault(false)
+            }
+
+            if (!updateIsRunning) {
+                AutoUpdateNotifier.cancelProgressNotification(this@MainActivity)
             }
         }
     }
@@ -503,6 +537,15 @@ class MainActivity : AppCompatActivity(),
     }
     
     private fun handleIncomingIntent(intent: Intent) {
+        if (intent.action == AutoUpdateNotifier.ACTION_SHOW_RECENT_CHANGES ||
+            intent.getBooleanExtra(AutoUpdateNotifier.EXTRA_SHOW_RECENT_CHANGES, false)
+        ) {
+            AutoUpdateNotifier.cancelProgressNotification(this)
+            maybeShowRecentPriceChanges()
+            intent.removeExtra(AutoUpdateNotifier.EXTRA_SHOW_RECENT_CHANGES)
+            return
+        }
+
         when (intent.action) {
             Intent.ACTION_SEND -> {
                 if (intent.type == "text/plain") {
@@ -1254,6 +1297,10 @@ class MainActivity : AppCompatActivity(),
 
     override fun onDialogCancelled(requestKey: String) {
         // No action needed for add book options cancel
+    }
+
+    companion object {
+        private const val RECENT_PRICE_CHANGES_DIALOG_TAG = "recent_price_changes_dialog"
     }
 
     /**

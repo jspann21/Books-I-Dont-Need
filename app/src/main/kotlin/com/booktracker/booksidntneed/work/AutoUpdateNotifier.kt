@@ -19,6 +19,8 @@ object AutoUpdateNotifier {
     // Public so worker can reference for ForegroundInfo
     const val CHANNEL_ID_PUBLIC = "price_updates"
     const val CHANNEL_ID_PROGRESS = "price_updates_progress"
+    const val ACTION_SHOW_RECENT_CHANGES = "com.booktracker.booksidntneed.SHOW_RECENT_CHANGES"
+    const val EXTRA_SHOW_RECENT_CHANGES = "show_recent_changes"
     private const val CHANNEL_ID = CHANNEL_ID_PUBLIC
     private const val CHANNEL_NAME = "Price Updates"
     private const val CHANNEL_DESC = "Notifications about automatic price updates"
@@ -58,7 +60,11 @@ object AutoUpdateNotifier {
         } else ""
         val content = if (summary.changed > 0) "$dropsText$increasesSuffix" else context.getString(R.string.summary_no_changes)
 
-        val intent = Intent(context, MainActivity::class.java)
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = ACTION_SHOW_RECENT_CHANGES
+            putExtra(EXTRA_SHOW_RECENT_CHANGES, true)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
         val piFlags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         val pendingIntent = PendingIntent.getActivity(context, 0, intent, piFlags)
 
@@ -99,6 +105,10 @@ object AutoUpdateNotifier {
         }
 
         NotificationManagerCompat.from(context).notify(NOTIF_ID_SUMMARY, builder.build())
+    }
+
+    fun cancelProgressNotification(context: Context) {
+        NotificationManagerCompat.from(context).cancel(NOTIF_ID_FOREGROUND)
     }
 }
 

@@ -190,6 +190,8 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 mapOf("source" to "auto_update_worker")
             )
             Result.retry()
+        } finally {
+            AutoUpdateNotifier.cancelProgressNotification(applicationContext)
         }
     }
 
