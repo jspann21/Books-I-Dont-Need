@@ -1036,26 +1036,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
     fun toggleCardViewMode() {
         _isMinimalCardMode.value = !(_isMinimalCardMode.value ?: false)
     }
-    
-    // private fun updateFilteredBooksFromDatabase() {
-    //     val sortOrder = _currentSortOrder.value ?: SortOrder.DATE_ADDED_DESC
-    //     val category = _selectedCategory.value // null means "All Categories"
 
-    //     // Remove the old source if it exists
-    //     currentBooksSource?.let {
-    //         _filteredBooks.removeSource(it)
-    //     }
-
-    //     // Get the new source and store a reference to it
-    //     val newSource = repository.getFilteredAndSortedBooks(sortOrder, category)
-    //     currentBooksSource = newSource
-
-    //     // Add the new source
-    //     _filteredBooks.addSource(newSource) { books ->
-    //         _filteredBooks.value = books ?: emptyList()
-    //     }
-    // }
-    
     // Handle user selection from multiple seller options
     private fun processSelectedSeller(
         sellerOptions: WebScrapingService.ScrapingResult.MultipleSellerOptions,

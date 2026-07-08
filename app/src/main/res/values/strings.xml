@@ -76,7 +76,6 @@
     <string name="import_failed">Import failed</string>
     <string name="save_file">Save CSV file</string>
     <string name="books_imported">%d books imported</string>
-    <string name="stores_imported">%d stores imported</string>
     <string name="store_listings_added">%d store listings added</string>
     <string name="store_listings_updated">%d store listings updated</string>
     <string name="store_listings_unchanged">%d store listings unchanged</string>

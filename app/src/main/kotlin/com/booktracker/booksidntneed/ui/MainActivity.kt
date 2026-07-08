@@ -878,8 +878,6 @@ class MainActivity : AppCompatActivity(),
                 
                 viewModel.setLastExportedData(csvData, tempFile)
                 showExportOptionsDialog()
-                return@launch
-                // Removed: shareCsvFile(tempFile)
             } catch (e: Exception) {
                 Log.e("BookTracker", "MainActivity: Export failed", e)
                 Toast.makeText(this@MainActivity, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()

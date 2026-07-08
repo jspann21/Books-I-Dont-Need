@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Reduced-motion dialog enter: fade-only, no scale. For motion-sensitive users. -->
-<alpha xmlns:android="http://schemas.android.com/apk/res/android"
-    android:fromAlpha="0.0"
-    android:toAlpha="1.0"
-    android:interpolator="@android:anim/decelerate_interpolator"
-    android:duration="200" />
