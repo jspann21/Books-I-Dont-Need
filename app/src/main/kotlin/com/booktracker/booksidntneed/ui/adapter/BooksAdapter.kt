@@ -280,6 +280,10 @@ class BooksAdapter(
         visibility = View.VISIBLE
     }
 
+    private fun BookWithStores.getStoresForDisplay(): List<BookStore> {
+        return if (stores.size <= 1) stores else getStoresSortedByPrice()
+    }
+
     inner class BookViewHolder(private val binding: ItemBookCardBinding) : RecyclerView.ViewHolder(binding.root) {
         
         private var storesAdapter: StoresAdapter? = null
@@ -310,7 +314,8 @@ class BooksAdapter(
             setupPriceInfo(bookWithStores)
 
             // Store count and expansion
-            setupStoreInfo(bookWithStores)
+            val storesForDisplay = bookWithStores.getStoresForDisplay()
+            setupStoreInfo(bookWithStores, storesForDisplay)
 
             // Date added
             val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
@@ -331,7 +336,7 @@ class BooksAdapter(
             binding.viewStoresButton.setOnClickListener {
                 if (bookWithStores.stores.size == 1) {
                     // For single store, go directly to store
-                    onStoreClick(bookWithStores.getStoresSortedByPrice().first())
+                    onStoreClick(storesForDisplay.first())
                 } else {
                     // For multiple stores, toggle the expanded view
                     toggleStoresVisibility(bookWithStores)
@@ -346,7 +351,7 @@ class BooksAdapter(
             binding.priceTextView.text = binding.root.context.getPriceText(lowestPrice, highestPrice)
         }
 
-        private fun setupStoreInfo(bookWithStores: BookWithStores) {
+        private fun setupStoreInfo(bookWithStores: BookWithStores, storesForDisplay: List<BookStore>) {
             when (val storeCount = bookWithStores.stores.size) {
                 0 -> {
                     binding.storeCountTextView.setText(R.string.no_stores_available)
@@ -355,7 +360,7 @@ class BooksAdapter(
                 1 -> {
                     binding.storeCountTextView.text = binding.root.context.getString(
                         R.string.available_at_store,
-                        bookWithStores.getStoresSortedByPrice().first().storeName
+                        storesForDisplay.first().storeName
                     )
                     binding.viewStoresButton.setText(R.string.visit_store)
                     binding.viewStoresButton.visibility = View.VISIBLE
@@ -374,7 +379,7 @@ class BooksAdapter(
                 )
             }
             binding.storesRecyclerView.adapter = storesAdapter
-            storesAdapter?.submitList(bookWithStores.getStoresSortedByPrice())
+            storesAdapter?.submitList(storesForDisplay)
         }
 
         private fun setupIsbnInfo(book: Book) {
@@ -568,6 +573,8 @@ class BooksAdapter(
         }
 
         private fun setupExpandedStoreInfo(bookWithStores: BookWithStores) {
+            val storesForDisplay = bookWithStores.getStoresForDisplay()
+
             when (val storeCount = bookWithStores.stores.size) {
                 0 -> {
                     binding.expandedStoreCountTextView.setText(R.string.no_stores_available)
@@ -576,13 +583,13 @@ class BooksAdapter(
                 1 -> {
                     binding.expandedStoreCountTextView.text = binding.root.context.getString(
                         R.string.available_at_store,
-                        bookWithStores.getStoresSortedByPrice().first().storeName
+                        storesForDisplay.first().storeName
                     )
                     binding.viewStoresButton.setText(R.string.visit_store)
                     binding.viewStoresButton.visibility = View.VISIBLE
 
                     binding.viewStoresButton.setOnClickListener {
-                        onStoreClick(bookWithStores.getStoresSortedByPrice().first())
+                        onStoreClick(storesForDisplay.first())
                     }
                 }
                 else -> {
@@ -603,7 +610,7 @@ class BooksAdapter(
                 )
             }
             binding.storesRecyclerView.adapter = storesAdapter
-            storesAdapter?.submitList(bookWithStores.getStoresSortedByPrice())
+            storesAdapter?.submitList(storesForDisplay)
         }
 
         private fun toggleStoresVisibility() {
