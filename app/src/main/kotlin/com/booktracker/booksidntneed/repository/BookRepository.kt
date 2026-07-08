@@ -393,13 +393,10 @@ class BookRepository(
     
     suspend fun findBookByTitleAndAuthor(title: String, author: String): BookWithStores? {
         return withContext(Dispatchers.IO) {
-            // Find books with similar title and author (case-insensitive)
-            val books = bookDao.getAllBooksSync()
-            val matchingBook = books.find { book ->
-                book.title.equals(title, ignoreCase = true) && 
-                book.author.equals(author, ignoreCase = true)
+            val matchingBook = bookDao.getBookIdentities().find { book ->
+                book.title.equals(title, ignoreCase = true) &&
+                    book.author.equals(author, ignoreCase = true)
             }
-            
             if (matchingBook != null) {
                 bookDao.getBookWithStores(matchingBook.id)
             } else {

@@ -14,6 +14,12 @@ import com.booktracker.booksidntneed.model.Book
 import com.booktracker.booksidntneed.model.BookWithSortData
 import com.booktracker.booksidntneed.model.BookWithStores
 
+data class BookIdentity(
+    val id: Long,
+    val title: String,
+    val author: String
+)
+
 @Dao
 interface BookDao {
     
@@ -67,6 +73,9 @@ interface BookDao {
     
     @Query("SELECT * FROM books WHERE title = :title AND author = :author LIMIT 1")
     suspend fun getBookByTitleAndAuthor(title: String, author: String): Book?
+
+    @Query("SELECT id, title, author FROM books")
+    suspend fun getBookIdentities(): List<BookIdentity>
     
     // Bulk query methods for efficient import operations
     @Query("SELECT * FROM books WHERE isbn13 IN (:isbn13List)")
