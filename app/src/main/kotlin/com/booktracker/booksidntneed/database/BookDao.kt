@@ -76,6 +76,9 @@ interface BookDao {
 
     @Query("SELECT id, title, author FROM books")
     suspend fun getBookIdentities(): List<BookIdentity>
+
+    @Query("SELECT * FROM books WHERE title IN (:titles) AND author IN (:authors)")
+    suspend fun getBooksByTitleAndAuthorCandidates(titles: List<String>, authors: List<String>): List<Book>
     
     // Bulk query methods for efficient import operations
     @Query("SELECT * FROM books WHERE isbn13 IN (:isbn13List)")

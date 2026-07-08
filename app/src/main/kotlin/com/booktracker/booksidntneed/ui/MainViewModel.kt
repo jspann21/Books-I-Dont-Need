@@ -1236,11 +1236,12 @@ class MainViewModel(private val repository: BookRepository, private val app: App
             var categoriesImported = 0
             var duplicatesMerged = 0
 
+            val importIndex = buildImportLookupIndex(books, categories)
+
             Log.d("BookTracker", "ViewModel: Importing categories first")
             // Import categories first
             categories.forEach { category ->
-                val existingCategory = repository.getCategoryByName(category.name)
-                if (existingCategory == null) {
+                if (importIndex.existingCategoryNames.add(category.name)) {
                     repository.insertCategory(category)
                     categoriesImported++
                     Log.d("BookTracker", "ViewModel: Imported new category: "+category.name)
@@ -1253,19 +1254,16 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 books.forEach { bookToImport ->
                     val bookKey = createBookKey(bookToImport)
                     val bookStores = storesByBookKey[bookKey] ?: emptyList()
-                    val existingBook = findExistingImportBook(bookToImport)
+                    val existingBook = findExistingImportBook(bookToImport, importIndex)
                     if (existingBook == null) {
                         // New book
                         val newBookId = repository.insertBook(bookToImport)
+                        importIndex.rememberBook(bookToImport.copy(id = newBookId))
                         booksImported++
-                        val storesForNewBook = bookStores.map { it.copy(bookId = newBookId) }
-                        storesForNewBook.forEach { store ->
-                            when (repository.upsertBookStoreForImport(store)) {
-                                BookRepository.StoreImportResult.Added -> storesImported++
-                                BookRepository.StoreImportResult.Updated -> storesUpdated++
-                                BookRepository.StoreImportResult.Unchanged -> storesUnchanged++
-                            }
-                        }
+                        val storeCounts = importStoresForBook(bookStores, newBookId, importIndex)
+                        storesImported += storeCounts.added
+                        storesUpdated += storeCounts.updated
+                        storesUnchanged += storeCounts.unchanged
                     } else {
                         // Merge with existing book
                         val mergedBook = existingBook.copy(
@@ -1279,15 +1277,12 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                             publishedDate = existingBook.publishedDate ?: bookToImport.publishedDate
                         )
                         repository.updateBook(mergedBook)
+                        importIndex.rememberBook(mergedBook)
                         duplicatesMerged++
-                        val storesForExistingBook = bookStores.map { it.copy(bookId = existingBook.id) }
-                        storesForExistingBook.forEach { store ->
-                            when (repository.upsertBookStoreForImport(store)) {
-                                BookRepository.StoreImportResult.Added -> storesImported++
-                                BookRepository.StoreImportResult.Updated -> storesUpdated++
-                                BookRepository.StoreImportResult.Unchanged -> storesUnchanged++
-                            }
-                        }
+                        val storeCounts = importStoresForBook(bookStores, existingBook.id, importIndex)
+                        storesImported += storeCounts.added
+                        storesUpdated += storeCounts.updated
+                        storesUnchanged += storeCounts.unchanged
                     }
                 }
             }
@@ -1322,37 +1317,22 @@ class MainViewModel(private val repository: BookRepository, private val app: App
         var storesUnchanged = 0
         var categoriesToAdd = 0
 
-        categories.forEach { category ->
-            if (repository.getCategoryByName(category.name) == null) {
-                categoriesToAdd++
-            }
-        }
+        val importIndex = buildImportLookupIndex(books, categories)
+        categoriesToAdd = categories.count { category -> category.name !in importIndex.existingCategoryNames }
 
         books.forEach { bookToImport ->
             val bookStores = storesByBookKey[createBookKey(bookToImport)] ?: emptyList()
-            val existingBook = findExistingImportBook(bookToImport)
+            val existingBook = findExistingImportBook(bookToImport, importIndex)
             if (existingBook == null) {
                 booksToAdd++
                 storesToAdd += bookStores.size
             } else {
                 booksToMerge++
                 bookStores.forEach { importedStore ->
-                    val existingStore = repository.getStoreByBookIdAndStoreName(existingBook.id, importedStore.storeName)
-                    if (existingStore == null) {
-                        storesToAdd++
-                    } else {
-                        val updatedStore = existingStore.copy(
-                            storeUrl = importedStore.storeUrl,
-                            price = importedStore.price,
-                            currency = importedStore.currency,
-                            availability = importedStore.availability,
-                            lastUpdated = importedStore.lastUpdated
-                        )
-                        if (updatedStore != existingStore) {
-                            storesToUpdate++
-                        } else {
-                            storesUnchanged++
-                        }
+                    when (previewStoreImport(importedStore, existingBook.id, importIndex)) {
+                        BookRepository.StoreImportResult.Added -> storesToAdd++
+                        BookRepository.StoreImportResult.Updated -> storesToUpdate++
+                        BookRepository.StoreImportResult.Unchanged -> storesUnchanged++
                     }
                 }
             }
@@ -1368,15 +1348,157 @@ class MainViewModel(private val repository: BookRepository, private val app: App
         )
     }
 
-    private suspend fun findExistingImportBook(book: Book): Book? {
+    private suspend fun buildImportLookupIndex(
+        books: List<Book>,
+        categories: List<Category>
+    ): ImportLookupIndex {
+        val existingCategoryNames = repository.getCategoriesByNames(
+            categories.map { it.name }.distinct()
+        ).map { it.name }.toMutableSet()
+
+        val isbn13Values = books.mapNotNull { it.isbn13?.takeIf(String::isNotEmpty) }.distinct()
+        val isbn10Values = books.mapNotNull { it.isbn10?.takeIf(String::isNotEmpty) }.distinct()
+        val titleAuthorImports = books.filter { it.isbn13.isNullOrEmpty() && it.isbn10.isNullOrEmpty() }
+
+        val booksByIsbn13 = repository.getBooksByISBN13List(isbn13Values)
+            .associateFirstNotNullBy { it.isbn13 }
+        val booksByIsbn10 = repository.getBooksByISBN10List(isbn10Values)
+            .associateFirstNotNullBy { it.isbn10 }
+        val booksByTitleAndAuthor = repository.getBooksByTitleAndAuthorCandidates(
+            titleAuthorImports.map { it.title }.distinct(),
+            titleAuthorImports.map { it.author }.distinct()
+        ).associateFirstBy { BookTitleAuthorKey(it.title, it.author) }
+
+        val index = ImportLookupIndex(
+            existingCategoryNames = existingCategoryNames,
+            booksByIsbn13 = booksByIsbn13,
+            booksByIsbn10 = booksByIsbn10,
+            booksByTitleAndAuthor = booksByTitleAndAuthor
+        )
+
+        val existingBookIds = books.mapNotNull { findExistingImportBook(it, index)?.id }
+            .distinct()
+        repository.getStoresForBookIds(existingBookIds).forEach { store ->
+            index.storesByBookAndName.putIfAbsent(StoreLookupKey(store.bookId, store.storeName), store)
+        }
+
+        return index
+    }
+
+    private fun findExistingImportBook(book: Book, importIndex: ImportLookupIndex): Book? {
         val isbn13 = book.isbn13
         val isbn10 = book.isbn10
         return when {
-            !isbn13.isNullOrEmpty() -> repository.getBookByISBN13(isbn13)
-            !isbn10.isNullOrEmpty() -> repository.getBookByISBN10(isbn10)
-            else -> repository.getBookByTitleAndAuthor(book.title, book.author)
+            !isbn13.isNullOrEmpty() -> importIndex.booksByIsbn13[isbn13]
+            !isbn10.isNullOrEmpty() -> importIndex.booksByIsbn10[isbn10]
+            else -> importIndex.booksByTitleAndAuthor[BookTitleAuthorKey(book.title, book.author)]
         }
     }
+
+    private suspend fun importStoresForBook(
+        importedStores: List<BookStore>,
+        bookId: Long,
+        importIndex: ImportLookupIndex
+    ): ImportStoreCounts {
+        var added = 0
+        var updated = 0
+        var unchanged = 0
+
+        importedStores.forEach { importedStore ->
+            val store = importedStore.copy(bookId = bookId)
+            val key = StoreLookupKey(bookId, store.storeName)
+            val existingStore = importIndex.storesByBookAndName[key]
+
+            if (existingStore == null) {
+                val newStoreId = repository.insertBookStoreForImport(store)
+                importIndex.storesByBookAndName[key] = store.copy(id = newStoreId)
+                added++
+            } else {
+                val updatedStore = updatedImportStore(existingStore, store)
+                if (updatedStore != existingStore) {
+                    repository.updateStore(updatedStore)
+                    importIndex.storesByBookAndName[key] = updatedStore
+                    updated++
+                } else {
+                    unchanged++
+                }
+            }
+        }
+
+        return ImportStoreCounts(added, updated, unchanged)
+    }
+
+    private fun previewStoreImport(
+        importedStore: BookStore,
+        bookId: Long,
+        importIndex: ImportLookupIndex
+    ): BookRepository.StoreImportResult {
+        val existingStore = importIndex.storesByBookAndName[StoreLookupKey(bookId, importedStore.storeName)]
+            ?: return BookRepository.StoreImportResult.Added
+
+        val updatedStore = updatedImportStore(existingStore, importedStore)
+        return if (updatedStore != existingStore) {
+            BookRepository.StoreImportResult.Updated
+        } else {
+            BookRepository.StoreImportResult.Unchanged
+        }
+    }
+
+    private fun updatedImportStore(existingStore: BookStore, importedStore: BookStore): BookStore {
+        return existingStore.copy(
+            storeUrl = importedStore.storeUrl,
+            price = importedStore.price,
+            currency = importedStore.currency,
+            availability = importedStore.availability,
+            lastUpdated = importedStore.lastUpdated
+        )
+    }
+
+    private fun ImportLookupIndex.rememberBook(book: Book) {
+        book.isbn13?.takeIf(String::isNotEmpty)?.let { booksByIsbn13.putIfAbsent(it, book) }
+        book.isbn10?.takeIf(String::isNotEmpty)?.let { booksByIsbn10.putIfAbsent(it, book) }
+        booksByTitleAndAuthor.putIfAbsent(BookTitleAuthorKey(book.title, book.author), book)
+    }
+
+    private inline fun <T, K> Iterable<T>.associateFirstBy(keySelector: (T) -> K): MutableMap<K, T> {
+        val result = mutableMapOf<K, T>()
+        forEach { item ->
+            val key = keySelector(item)
+            if (key !in result) {
+                result[key] = item
+            }
+        }
+        return result
+    }
+
+    private inline fun <T, K : Any> Iterable<T>.associateFirstNotNullBy(keySelector: (T) -> K?): MutableMap<K, T> {
+        val result = mutableMapOf<K, T>()
+        forEach { item ->
+            val key = keySelector(item)
+            if (key != null && key !in result) {
+                result[key] = item
+            }
+        }
+        return result
+    }
+
+    private data class ImportLookupIndex(
+        val existingCategoryNames: MutableSet<String>,
+        val booksByIsbn13: MutableMap<String, Book>,
+        val booksByIsbn10: MutableMap<String, Book>,
+        val booksByTitleAndAuthor: MutableMap<BookTitleAuthorKey, Book>,
+        val storesByBookAndName: MutableMap<StoreLookupKey, BookStore> = mutableMapOf()
+    )
+
+    private data class BookTitleAuthorKey(val title: String, val author: String)
+
+    private data class StoreLookupKey(val bookId: Long, val storeName: String)
+
+    private data class ImportStoreCounts(
+        val added: Int,
+        val updated: Int,
+        val unchanged: Int
+    )
 
     private fun recordUiException(
         throwable: Throwable,

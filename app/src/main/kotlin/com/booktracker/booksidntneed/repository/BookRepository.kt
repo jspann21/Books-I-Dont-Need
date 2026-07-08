@@ -724,9 +724,43 @@ class BookRepository(
         return bookDao.getBookByTitleAndAuthor(title, author)
     }
 
+    suspend fun getBooksByISBN13List(isbn13List: List<String>): List<Book> {
+        if (isbn13List.isEmpty()) return emptyList()
+        Log.d("BookTracker", "BookRepository: Bulk looking up ${isbn13List.size} ISBN-13 values")
+        return bookDao.getBooksByISBN13List(isbn13List)
+    }
+
+    suspend fun getBooksByISBN10List(isbn10List: List<String>): List<Book> {
+        if (isbn10List.isEmpty()) return emptyList()
+        Log.d("BookTracker", "BookRepository: Bulk looking up ${isbn10List.size} ISBN-10 values")
+        return bookDao.getBooksByISBN10List(isbn10List)
+    }
+
+    suspend fun getBooksByTitleAndAuthorCandidates(titles: List<String>, authors: List<String>): List<Book> {
+        if (titles.isEmpty() || authors.isEmpty()) return emptyList()
+        Log.d("BookTracker", "BookRepository: Bulk looking up title/author import candidates")
+        return bookDao.getBooksByTitleAndAuthorCandidates(titles, authors)
+    }
+
+    suspend fun getStoresForBookIds(bookIds: List<Long>): List<BookStore> {
+        if (bookIds.isEmpty()) return emptyList()
+        Log.d("BookTracker", "BookRepository: Bulk looking up stores for ${bookIds.size} books")
+        return bookStoreDao.getStoresForBooks(bookIds)
+    }
+
+    suspend fun getCategoriesByNames(names: List<String>): List<Category> {
+        if (names.isEmpty()) return emptyList()
+        Log.d("BookTracker", "BookRepository: Bulk looking up ${names.size} categories")
+        return categoryDao.getCategoriesByNames(names)
+    }
+
     suspend fun insertBookStoresInTransaction(bookStores: List<BookStore>) {
         Log.d("BookTracker", "BookRepository: Bulk inserting ${bookStores.size} book stores in transaction")
         bookStoreDao.insertStoresInTransaction(bookStores)
+    }
+
+    suspend fun insertBookStoreForImport(bookStore: BookStore): Long {
+        return bookStoreDao.insertStore(bookStore)
     }
 
     suspend fun upsertBookStoreForImport(bookStore: BookStore): StoreImportResult {

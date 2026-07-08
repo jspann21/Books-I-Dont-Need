@@ -18,6 +18,9 @@ interface BookStoreDao {
     
     @Query("SELECT * FROM book_stores WHERE bookId = :bookId AND storeName = :storeName LIMIT 1")
     suspend fun getStoreForBook(bookId: Long, storeName: String): BookStore?
+
+    @Query("SELECT * FROM book_stores WHERE bookId IN (:bookIds)")
+    suspend fun getStoresForBooks(bookIds: List<Long>): List<BookStore>
     
     @Query("SELECT * FROM book_stores ORDER BY storeName ASC")
     fun getAllStores(): LiveData<List<BookStore>>

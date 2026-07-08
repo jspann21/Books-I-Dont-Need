@@ -48,6 +48,9 @@ interface CategoryDao {
     
     @Query("SELECT * FROM categories WHERE name = :name LIMIT 1")
     suspend fun getCategoryByName(name: String): Category?
+
+    @Query("SELECT * FROM categories WHERE name IN (:names)")
+    suspend fun getCategoriesByNames(names: List<String>): List<Category>
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategory(category: Category)
