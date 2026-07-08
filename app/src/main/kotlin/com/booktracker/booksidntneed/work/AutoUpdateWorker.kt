@@ -120,27 +120,28 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
 
                         try {
                             val before = store.price
-                            requestLimiter.run(store.storeUrl) {
+                            val updateResult = requestLimiter.run(store.storeUrl) {
                                 repository.updateSingleStorePrices(store)
                             }
-                            // Fetch updated store snapshot
-                            val updated = withContext(Dispatchers.IO) { repository.getStoreByBookIdAndStoreName(store.bookId, store.storeName) }
-                            val after = updated?.price
-                            if (before != after) {
-                                changes.incrementAndGet()
-                                if (before != null && after != null) {
-                                    if (after < before) drops.incrementAndGet() else increases.incrementAndGet()
-                                }
-                                changeEntries.add(
-                                    PriceChangeEntry(
-                                        bookId = book.book.id,
-                                        bookTitle = book.book.title,
-                                        storeName = store.storeName,
-                                        oldPrice = before,
-                                        newPrice = after,
-                                        timestamp = System.currentTimeMillis()
+
+                            if (updateResult is BookRepository.SingleStoreUpdateResult.Success) {
+                                val after = updateResult.newPrice
+                                if (before != after) {
+                                    changes.incrementAndGet()
+                                    if (before != null && after != null) {
+                                        if (after < before) drops.incrementAndGet() else increases.incrementAndGet()
+                                    }
+                                    changeEntries.add(
+                                        PriceChangeEntry(
+                                            bookId = book.book.id,
+                                            bookTitle = book.book.title,
+                                            storeName = store.storeName,
+                                            oldPrice = before,
+                                            newPrice = after,
+                                            timestamp = System.currentTimeMillis()
+                                        )
                                     )
-                                )
+                                }
                             }
                         } catch (e: Exception) {
                             failedUpdates.incrementAndGet()
