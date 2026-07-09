@@ -107,56 +107,68 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             setForegroundIfAllowed(createForegroundInfo(initialProgressText, totalProgress = totalStores))
             setProgressData(0, totalStores, initialProgressText)
 
-            coroutineScope {
-                updateTargets.map { target ->
-                    async {
-                        val book = target.book
-                        val store = target.store
-                        if (isStopped) {
-                            Log.d(TAG, "AutoUpdateWorker: Skipping remaining work because worker stopped")
-                            return@async
-                        }
-                        totalChecked.incrementAndGet()
+            suspend fun processTarget(target: PriceUpdateTarget) {
+                val book = target.book
+                val store = target.store
+                if (isStopped) {
+                    Log.d(TAG, "AutoUpdateWorker: Skipping remaining work because worker stopped")
+                    return
+                }
+                totalChecked.incrementAndGet()
 
-                        try {
-                            val before = store.price
-                            val updateResult = requestLimiter.run(store.storeUrl) {
-                                repository.updateSingleStorePrices(store)
-                            }
+                try {
+                    val before = store.price
+                    val updateResult = requestLimiter.run(store.storeUrl) {
+                        repository.updateSingleStorePrices(store)
+                    }
 
-                            if (updateResult is BookRepository.SingleStoreUpdateResult.Success) {
-                                val after = updateResult.newPrice
-                                if (before != after) {
-                                    changes.incrementAndGet()
-                                    if (before != null && after != null) {
-                                        if (after < before) drops.incrementAndGet() else increases.incrementAndGet()
-                                    }
-                                    changeEntries.add(
-                                        PriceChangeEntry(
-                                            bookId = book.book.id,
-                                            bookTitle = book.book.title,
-                                            storeName = store.storeName,
-                                            oldPrice = before,
-                                            newPrice = after,
-                                            timestamp = System.currentTimeMillis()
-                                        )
-                                    )
-                                }
+                    if (updateResult is BookRepository.SingleStoreUpdateResult.Success) {
+                        val after = updateResult.newPrice
+                        if (before != after) {
+                            changes.incrementAndGet()
+                            if (before != null && after != null) {
+                                if (after < before) drops.incrementAndGet() else increases.incrementAndGet()
                             }
-                        } catch (e: Exception) {
-                            failedUpdates.incrementAndGet()
-                            Log.e(TAG, "Failed to update store for book '${book.book.title}' (${store.storeName}): ${e.message}")
-                            ErrorReporter.recordException(
-                                e,
-                                "Background price update failed for one store",
-                                mapOf(
-                                    "source" to "auto_update_store",
-                                    "store_host" to hostFrom(store.storeUrl)
+                            changeEntries.add(
+                                PriceChangeEntry(
+                                    bookId = book.book.id,
+                                    bookTitle = book.book.title,
+                                    storeName = store.storeName,
+                                    oldPrice = before,
+                                    newPrice = after,
+                                    timestamp = System.currentTimeMillis()
                                 )
                             )
-                        } finally {
-                            val processed = storesProcessed.incrementAndGet()
-                            updateProgress(processed, totalStores, book.book.title)
+                        }
+                    }
+                } catch (e: Exception) {
+                    failedUpdates.incrementAndGet()
+                    Log.e(TAG, "Failed to update store for book '${book.book.title}' (${store.storeName}): ${e.message}")
+                    ErrorReporter.recordException(
+                        e,
+                        "Background price update failed for one store",
+                        mapOf(
+                            "source" to "auto_update_store",
+                            "store_host" to hostFrom(store.storeUrl)
+                        )
+                    )
+                } finally {
+                    val processed = storesProcessed.incrementAndGet()
+                    updateProgress(processed, totalStores, book.book.title)
+                }
+            }
+
+            coroutineScope {
+                val nextTargetIndex = AtomicInteger(0)
+                val workerCount = minOf(MAX_BACKGROUND_UPDATE_WORKERS, totalStores)
+                List(workerCount) {
+                    async {
+                        while (!isStopped) {
+                            val targetIndex = nextTargetIndex.getAndIncrement()
+                            if (targetIndex >= updateTargets.size) {
+                                break
+                            }
+                            processTarget(updateTargets[targetIndex])
                         }
                     }
                 }.awaitAll()
@@ -289,6 +301,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
 
     companion object {
         private const val TAG = "AutoUpdateWorker"
+        private const val MAX_BACKGROUND_UPDATE_WORKERS = 3
         private const val PROGRESS_UPDATE_INTERVAL = 3 // Update progress notification every N stores
         const val KEY_PROGRESS_CURRENT = "progress_current"
         const val KEY_PROGRESS_TOTAL = "progress_total"
