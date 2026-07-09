@@ -19,7 +19,13 @@ import java.util.Date
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index(value = ["bookId"])]
+    indices = [
+        Index(value = ["bookId"]),
+        Index(value = ["bookId", "storeName"]),
+        Index(value = ["bookId", "price"]),
+        Index(value = ["storeName"]),
+        Index(value = ["price"])
+    ]
 )
 data class BookStore(
     @PrimaryKey(autoGenerate = true)
@@ -32,4 +38,4 @@ data class BookStore(
     val availability: String? = null,
     val dateAdded: Date = Date(),
     val lastUpdated: Date = Date()
-) : Parcelable 
+) : Parcelable
