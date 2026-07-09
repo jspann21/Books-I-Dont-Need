@@ -22,6 +22,8 @@ import com.booktracker.booksidntneed.repository.BookRepository
 import com.booktracker.booksidntneed.repository.CategoryManager
 import com.booktracker.booksidntneed.utils.ErrorReporter
 import com.booktracker.booksidntneed.work.ResponsiblePriceUpdateLimiter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -373,14 +375,26 @@ class MainViewModel(private val repository: BookRepository, private val app: App
         val searchQuerySource = _searchQuery
         var currentSource: LiveData<List<BookWithStores>>? = null
         var latestBooks: List<BookWithStores> = emptyList()
-        var latestSearchableBooks: List<SearchableBook> = emptyList()
+        var filterJob: Job? = null
+        val filterGeneration = AtomicInteger(0)
 
         fun applySearch() {
             val query = searchQuerySource.value.orEmpty()
-            value = if (query.isBlank()) {
-                latestBooks
-            } else {
-                latestSearchableBooks.filterBySearchQuery(query)
+            val booksSnapshot = latestBooks
+            val generation = filterGeneration.incrementAndGet()
+            filterJob?.cancel()
+
+            if (query.isBlank()) {
+                value = booksSnapshot
+                return
+            }
+
+            filterJob = viewModelScope.launch(Dispatchers.Default) {
+                val searchableBooks = booksSnapshot.map { it.toSearchableBook() }
+                val filteredBooks = searchableBooks.filterBySearchQuery(query)
+                if (filterGeneration.get() == generation) {
+                    postValue(filteredBooks)
+                }
             }
         }
 
@@ -392,7 +406,6 @@ class MainViewModel(private val repository: BookRepository, private val app: App
             currentSource = newSource
             addSource(newSource) { books ->
                 latestBooks = books ?: emptyList()
-                latestSearchableBooks = latestBooks.map { it.toSearchableBook() }
                 applySearch()
             }
         }
