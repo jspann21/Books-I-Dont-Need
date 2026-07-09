@@ -15,12 +15,6 @@ import com.booktracker.booksidntneed.model.BookStore
 import com.booktracker.booksidntneed.model.BookWithSortData
 import com.booktracker.booksidntneed.model.BookWithStores
 
-data class BookIdentity(
-    val id: Long,
-    val title: String,
-    val author: String
-)
-
 @Dao
 interface BookDao {
     
@@ -75,8 +69,14 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE title = :title AND author = :author LIMIT 1")
     suspend fun getBookByTitleAndAuthor(title: String, author: String): Book?
 
-    @Query("SELECT id, title, author FROM books")
-    suspend fun getBookIdentities(): List<BookIdentity>
+    @Transaction
+    @Query("""
+        SELECT * FROM books
+        WHERE title = :title COLLATE NOCASE
+            AND author = :author COLLATE NOCASE
+        LIMIT 1
+    """)
+    suspend fun getBookWithStoresByTitleAndAuthorIgnoreCase(title: String, author: String): BookWithStores?
 
     @Query("SELECT * FROM books WHERE title IN (:titles) AND author IN (:authors)")
     suspend fun getBooksByTitleAndAuthorCandidates(titles: List<String>, authors: List<String>): List<Book>

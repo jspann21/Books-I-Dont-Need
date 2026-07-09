@@ -368,15 +368,7 @@ class BookRepository(
     
     suspend fun findBookByTitleAndAuthor(title: String, author: String): BookWithStores? {
         return withContext(Dispatchers.IO) {
-            val matchingBook = bookDao.getBookIdentities().find { book ->
-                book.title.equals(title, ignoreCase = true) &&
-                    book.author.equals(author, ignoreCase = true)
-            }
-            if (matchingBook != null) {
-                bookDao.getBookWithStores(matchingBook.id)
-            } else {
-                null
-            }
+            bookDao.getBookWithStoresByTitleAndAuthorIgnoreCase(title, author)
         }
     }
     
