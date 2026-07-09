@@ -36,37 +36,59 @@ class BookRepository(
         sortOrder: com.booktracker.booksidntneed.ui.MainViewModel.SortOrder,
         category: String?
     ): LiveData<List<BookWithStores>> {
-        val sortColumn = when (sortOrder) {
+        val query = when (sortOrder) {
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.PRICE_ASC ->
+                buildAggregateSortedBooksQuery(category, "MIN(s.price) ASC")
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.PRICE_DESC ->
+                buildAggregateSortedBooksQuery(category, "MIN(s.price) DESC")
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.STORE_NAME_ASC ->
+                buildAggregateSortedBooksQuery(category, "MIN(s.storeName) ASC")
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.STORE_NAME_DESC ->
+                buildAggregateSortedBooksQuery(category, "MIN(s.storeName) DESC")
+            else -> buildSimpleSortedBooksQuery(category, simpleBookSortColumn(sortOrder))
+        }
+
+        return bookDao.getFilteredAndSortedBooks(
+            if (category == null) {
+                SimpleSQLiteQuery(query)
+            } else {
+                SimpleSQLiteQuery(query, arrayOf(category))
+            }
+        )
+    }
+
+    private fun simpleBookSortColumn(sortOrder: com.booktracker.booksidntneed.ui.MainViewModel.SortOrder): String {
+        return when (sortOrder) {
             com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.TITLE_ASC -> "b.title ASC"
             com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.TITLE_DESC -> "b.title DESC"
             com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.AUTHOR_ASC -> "b.author ASC"
             com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.AUTHOR_DESC -> "b.author DESC"
             com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.DATE_ADDED_ASC -> "b.dateAdded ASC"
             com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.DATE_ADDED_DESC -> "b.dateAdded DESC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.PRICE_ASC -> "MIN(s.price) ASC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.PRICE_DESC -> "MIN(s.price) DESC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.STORE_NAME_ASC -> "MIN(s.storeName) ASC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.STORE_NAME_DESC -> "MIN(s.storeName) DESC"
+            else -> "b.dateAdded DESC"
         }
+    }
 
+    private fun buildSimpleSortedBooksQuery(category: String?, sortColumn: String): String {
+        val baseQuery = "SELECT b.* FROM books AS b"
+        return if (category == null) {
+            "$baseQuery ORDER BY $sortColumn"
+        } else {
+            "$baseQuery WHERE b.category = ? ORDER BY $sortColumn"
+        }
+    }
+
+    private fun buildAggregateSortedBooksQuery(category: String?, sortColumn: String): String {
         val baseQuery = """
             SELECT b.*
             FROM books AS b
             LEFT JOIN book_stores AS s ON b.id = s.bookId
         """.trimIndent()
-        val query = if (category == null) {
+        return if (category == null) {
             "$baseQuery GROUP BY b.id ORDER BY $sortColumn"
         } else {
             "$baseQuery WHERE b.category = ? GROUP BY b.id ORDER BY $sortColumn"
         }
-
-        val simpleSQLiteQuery = if (category == null) {
-            SimpleSQLiteQuery(query)
-        } else {
-            SimpleSQLiteQuery(query, arrayOf(category))
-        }
-
-        return bookDao.getFilteredAndSortedBooks(simpleSQLiteQuery)
     }
 
     suspend fun deleteBook(book: Book) {
