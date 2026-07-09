@@ -344,10 +344,9 @@ class BooksAdapter(
         }
 
         private fun setupPriceInfo(bookWithStores: BookWithStores) {
-            val lowestPrice = bookWithStores.getLowestPrice()
-            val highestPrice = bookWithStores.getHighestPrice()
+            val priceSummary = bookWithStores.getPriceSummary()
 
-            binding.priceTextView.text = binding.root.context.getPriceText(lowestPrice, highestPrice)
+            binding.priceTextView.text = binding.root.context.getPriceText(priceSummary.lowestPrice, priceSummary.highestPrice)
         }
 
         private fun setupStoreInfo(bookWithStores: BookWithStores) {
@@ -467,10 +466,13 @@ class BooksAdapter(
         }
 
         private fun setupMinimalPriceInfo(bookWithStores: BookWithStores) {
-            val lowestPrice = bookWithStores.getLowestPrice()
-            val highestPrice = bookWithStores.getHighestPrice()
+            val priceSummary = bookWithStores.getPriceSummary()
 
-            binding.priceTextView.text = binding.root.context.getPriceText(lowestPrice, highestPrice, compact = true)
+            binding.priceTextView.text = binding.root.context.getPriceText(
+                priceSummary.lowestPrice,
+                priceSummary.highestPrice,
+                compact = true
+            )
         }
 
         private fun setupMinimalStoreInfo(bookWithStores: BookWithStores) {
@@ -569,10 +571,12 @@ class BooksAdapter(
         }
 
         private fun setupExpandedPriceInfo(bookWithStores: BookWithStores) {
-            val lowestPrice = bookWithStores.getLowestPrice()
-            val highestPrice = bookWithStores.getHighestPrice()
+            val priceSummary = bookWithStores.getPriceSummary()
 
-            binding.expandedPriceTextView.text = binding.root.context.getPriceText(lowestPrice, highestPrice)
+            binding.expandedPriceTextView.text = binding.root.context.getPriceText(
+                priceSummary.lowestPrice,
+                priceSummary.highestPrice
+            )
         }
 
         private fun setupExpandedStoreInfo(bookWithStores: BookWithStores) {
