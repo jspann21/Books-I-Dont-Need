@@ -185,13 +185,7 @@ class MainActivity : AppCompatActivity(),
                 lifecycleScope.launch {
                     val json = AutoUpdatePreferences.recentChangesJson(this@MainActivity).firstOrNull()
                     if (!json.isNullOrBlank()) {
-                        val dialog = com.booktracker.booksidntneed.ui.dialog.RecentPriceChangesDialogFragment.newInstance(json)
-                        if (!isFinishing &&
-                            !isDestroyed &&
-                            supportFragmentManager.findFragmentByTag(RECENT_PRICE_CHANGES_DIALOG_TAG) == null
-                        ) {
-                            dialog.show(supportFragmentManager, RECENT_PRICE_CHANGES_DIALOG_TAG)
-                        }
+                        showRecentPriceChangesDialog(json)
                     }
                 }
             }
@@ -218,13 +212,23 @@ class MainActivity : AppCompatActivity(),
         lifecycleScope.launch {
             val json = AutoUpdatePreferences.recentChangesJson(this@MainActivity).firstOrNull()
             if (!json.isNullOrBlank()) {
-                // Show a dialog listing recent price changes
-                val dialog = com.booktracker.booksidntneed.ui.dialog.RecentPriceChangesDialogFragment.newInstance(json)
-                if (supportFragmentManager.findFragmentByTag(RECENT_PRICE_CHANGES_DIALOG_TAG) == null) {
-                    dialog.show(supportFragmentManager, RECENT_PRICE_CHANGES_DIALOG_TAG)
-                }
+                showRecentPriceChangesDialog(json)
             }
         }
+    }
+
+    private fun showRecentPriceChangesDialog(json: String) {
+        if (isFinishing ||
+            isDestroyed ||
+            supportFragmentManager.isStateSaved ||
+            supportFragmentManager.findFragmentByTag(RECENT_PRICE_CHANGES_DIALOG_TAG) != null
+        ) {
+            return
+        }
+
+        com.booktracker.booksidntneed.ui.dialog.RecentPriceChangesDialogFragment
+            .newInstance(json)
+            .showNow(supportFragmentManager, RECENT_PRICE_CHANGES_DIALOG_TAG)
     }
 
     private fun clearStaleAutoUpdateProgressNotification() {
