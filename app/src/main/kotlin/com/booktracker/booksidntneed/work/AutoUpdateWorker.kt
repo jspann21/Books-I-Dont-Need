@@ -104,7 +104,9 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
 
             // Set initial foreground info with progress
             val initialProgressText = "Starting price updates... (0 of $totalStores)"
-            setForegroundIfAllowed(createForegroundInfo(initialProgressText, totalProgress = totalStores))
+            if (inputData.getBoolean(KEY_ALLOW_FOREGROUND, false)) {
+                setForegroundIfAllowed(createForegroundInfo(initialProgressText, totalProgress = totalStores))
+            }
             setProgressData(0, totalStores, initialProgressText)
 
             suspend fun processTarget(target: PriceUpdateTarget) {
@@ -306,6 +308,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
         const val KEY_PROGRESS_CURRENT = "progress_current"
         const val KEY_PROGRESS_TOTAL = "progress_total"
         const val KEY_PROGRESS_TEXT = "progress_text"
+        const val KEY_ALLOW_FOREGROUND = "allow_foreground"
         const val ACTION_SUMMARY_READY = "com.booktracker.booksidntneed.UPDATE_SUMMARY_READY"
     }
 }

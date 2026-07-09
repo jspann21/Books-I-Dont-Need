@@ -9,6 +9,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.workDataOf
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 import androidx.work.NetworkType
@@ -98,6 +99,7 @@ object AutoUpdateScheduler {
 
     fun enqueueManual(context: Context) {
         val request = OneTimeWorkRequestBuilder<AutoUpdateWorker>()
+            .setInputData(workDataOf(AutoUpdateWorker.KEY_ALLOW_FOREGROUND to true))
             .setConstraints(manualUpdateConstraints())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_BACKOFF_MINUTES, TimeUnit.MINUTES)
             .build()
