@@ -312,40 +312,54 @@ class MainViewModel(private val repository: BookRepository, private val app: App
     // Data
     val allCategories: LiveData<List<Category>> = repository.getAllCategories()
 
-    private fun List<BookWithStores>.filterBySearchQuery(query: String): List<BookWithStores> {
-        if (query.isBlank()) return this
+    private data class SearchableBook(
+        val bookWithStores: BookWithStores,
+        val searchableText: String,
+        val isbnText: String
+    )
+
+    private fun BookWithStores.toSearchableBook(): SearchableBook {
+        val sourceBook = book
+        val searchableText = buildString {
+            append(sourceBook.title)
+            append(' ')
+            append(sourceBook.author)
+            append(' ')
+            append(sourceBook.isbn10.orEmpty())
+            append(' ')
+            append(sourceBook.isbn13.orEmpty())
+            append(' ')
+            append(stores.joinToString(" ") { it.storeName })
+        }.lowercase(Locale.ROOT)
+
+        val isbnText = "${sourceBook.isbn10.orEmpty()} ${sourceBook.isbn13.orEmpty()}"
+            .filter { it.isDigit() || it.equals('x', ignoreCase = true) }
+            .lowercase(Locale.ROOT)
+
+        return SearchableBook(
+            bookWithStores = this,
+            searchableText = searchableText,
+            isbnText = isbnText
+        )
+    }
+
+    private fun List<SearchableBook>.filterBySearchQuery(query: String): List<BookWithStores> {
+        if (query.isBlank()) return map { it.bookWithStores }
 
         val normalizedQuery = query.lowercase(Locale.ROOT)
         val numericQuery = query.filter { it.isDigit() || it.equals('x', ignoreCase = true) }
             .lowercase(Locale.ROOT)
 
-        return filter { bookWithStores ->
-            val book = bookWithStores.book
-            val searchableText = buildString {
-                append(book.title)
-                append(' ')
-                append(book.author)
-                append(' ')
-                append(book.isbn10.orEmpty())
-                append(' ')
-                append(book.isbn13.orEmpty())
-                append(' ')
-                append(bookWithStores.stores.joinToString(" ") { it.storeName })
-            }.lowercase(Locale.ROOT)
-
-            if (searchableText.contains(normalizedQuery)) {
-                return@filter true
+        return mapNotNull { searchableBook ->
+            if (searchableBook.searchableText.contains(normalizedQuery)) {
+                searchableBook.bookWithStores
+            } else if (numericQuery.isBlank()) {
+                null
+            } else {
+                searchableBook.bookWithStores.takeIf {
+                    searchableBook.isbnText.contains(numericQuery)
+                }
             }
-
-            if (numericQuery.isBlank()) {
-                return@filter false
-            }
-
-            val isbnText = "${book.isbn10.orEmpty()} ${book.isbn13.orEmpty()}"
-                .filter { it.isDigit() || it.equals('x', ignoreCase = true) }
-                .lowercase(Locale.ROOT)
-
-            isbnText.contains(numericQuery)
         }
     }
     
@@ -356,9 +370,15 @@ class MainViewModel(private val repository: BookRepository, private val app: App
         val searchQuerySource = _searchQuery
         var currentSource: LiveData<List<BookWithStores>>? = null
         var latestBooks: List<BookWithStores> = emptyList()
+        var latestSearchableBooks: List<SearchableBook> = emptyList()
 
         fun applySearch() {
-            value = latestBooks.filterBySearchQuery(searchQuerySource.value.orEmpty())
+            val query = searchQuerySource.value.orEmpty()
+            value = if (query.isBlank()) {
+                latestBooks
+            } else {
+                latestSearchableBooks.filterBySearchQuery(query)
+            }
         }
 
         fun updateSource() {
@@ -369,6 +389,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
             currentSource = newSource
             addSource(newSource) { books ->
                 latestBooks = books ?: emptyList()
+                latestSearchableBooks = latestBooks.map { it.toSearchableBook() }
                 applySearch()
             }
         }
