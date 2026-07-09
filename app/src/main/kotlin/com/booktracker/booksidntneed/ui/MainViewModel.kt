@@ -21,6 +21,7 @@ import com.booktracker.booksidntneed.network.WebScrapingService
 import com.booktracker.booksidntneed.repository.BookRepository
 import com.booktracker.booksidntneed.repository.CategoryManager
 import com.booktracker.booksidntneed.utils.ErrorReporter
+import com.booktracker.booksidntneed.work.ResponsiblePriceUpdateLimiter
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.parcelize.Parcelize
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
 
 sealed class ConfirmationRequest {
@@ -61,6 +63,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
         // Use null as a sentinel value for "All Categories" to avoid hardcoded strings
         // The UI layer is responsible for displaying the localized string
         private val ALL_CATEGORIES_SENTINEL: String? = null
+        private const val MAX_MANUAL_UPDATE_WORKERS = 3
     }
     
 
@@ -781,7 +784,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 )
             }
             
-            _priceUpdateProgress.value = PriceUpdateProgressState(
+            val initialState = PriceUpdateProgressState(
                 isActive = true,
                 currentStoreIndex = 0,
                 totalStores = updatableStores.size,
@@ -792,166 +795,186 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 totalTasks = totalTasks,
                 completedTasks = 0
             )
+            _priceUpdateProgress.value = initialState
             
             try {
-                var successCount = 0
-                var failureCount = 0
-                var completedTasks = 0
+                val completedTasks = AtomicInteger(0)
                 val updatedProgress = initialProgress.toMutableList()
+                val progressLock = Any()
+                var latestProgressState = initialState
+                val requestLimiter = ResponsiblePriceUpdateLimiter(MAX_MANUAL_UPDATE_WORKERS)
+
+                fun updateProgressState(update: () -> PriceUpdateProgressState) {
+                    val nextState = synchronized(progressLock) {
+                        latestProgressState = update()
+                        latestProgressState
+                    }
+                    _priceUpdateProgress.postValue(nextState)
+                }
                 
-                val deferredResults = updatableStores.mapIndexed { index, store ->
+                val nextStoreIndex = AtomicInteger(0)
+                val workerCount = minOf(MAX_MANUAL_UPDATE_WORKERS, updatableStores.size)
+                val deferredResults = List(workerCount) {
                     async {
-                        // Create progress callback for this store
-                        val progressCallback = object : ScrapingProgressCallback {
-                            override fun onTaskStarted(task: String, progress: Int) {
-                                val taskEnum = when (task) {
-                                    "Validating URL" -> StoreUpdateTask.VALIDATING_URL
-                                    "Establishing Session" -> StoreUpdateTask.ESTABLISHING_SESSION
-                                    "Fetching Document" -> StoreUpdateTask.FETCHING_DOCUMENT
-                                    "Parsing Content" -> StoreUpdateTask.PARSING_CONTENT
-                                    "Validating Data" -> StoreUpdateTask.VALIDATING_DATA
-                                    "Updating Database" -> StoreUpdateTask.UPDATING_DATABASE
-                                    else -> StoreUpdateTask.PENDING
+                        while (true) {
+                            val index = nextStoreIndex.getAndIncrement()
+                            if (index >= updatableStores.size) {
+                                break
+                            }
+
+                            val store = updatableStores[index]
+
+                            // Create progress callback for this store
+                            val progressCallback = object : ScrapingProgressCallback {
+                                override fun onTaskStarted(task: String, progress: Int) {
+                                    val taskEnum = when (task) {
+                                        "Validating URL" -> StoreUpdateTask.VALIDATING_URL
+                                        "Establishing Session" -> StoreUpdateTask.ESTABLISHING_SESSION
+                                        "Fetching Document" -> StoreUpdateTask.FETCHING_DOCUMENT
+                                        "Parsing Content" -> StoreUpdateTask.PARSING_CONTENT
+                                        "Validating Data" -> StoreUpdateTask.VALIDATING_DATA
+                                        "Updating Database" -> StoreUpdateTask.UPDATING_DATABASE
+                                        else -> StoreUpdateTask.PENDING
+                                    }
+
+                                    updateProgressState {
+                                        updatedProgress[index] = updatedProgress[index].copy(
+                                            status = StoreUpdateStatus.UPDATING,
+                                            currentTask = taskEnum,
+                                            taskProgress = progress
+                                        )
+                                        latestProgressState.copy(
+                                            currentStoreIndex = index,
+                                            stores = updatedProgress.toList()
+                                        )
+                                    }
                                 }
-                                
-                                updatedProgress[index] = updatedProgress[index].copy(
-                                    status = StoreUpdateStatus.UPDATING,
-                                    currentTask = taskEnum,
-                                    taskProgress = progress
+
+                                override fun onTaskProgress(task: String, progress: Int) {
+                                    val taskEnum = when (task) {
+                                        "Validating URL" -> StoreUpdateTask.VALIDATING_URL
+                                        "Establishing Session" -> StoreUpdateTask.ESTABLISHING_SESSION
+                                        "Fetching Document" -> StoreUpdateTask.FETCHING_DOCUMENT
+                                        "Parsing Content" -> StoreUpdateTask.PARSING_CONTENT
+                                        "Validating Data" -> StoreUpdateTask.VALIDATING_DATA
+                                        "Updating Database" -> StoreUpdateTask.UPDATING_DATABASE
+                                        else -> StoreUpdateTask.PENDING
+                                    }
+
+                                    updateProgressState {
+                                        updatedProgress[index] = updatedProgress[index].copy(
+                                            currentTask = taskEnum,
+                                            taskProgress = progress
+                                        )
+                                        latestProgressState.copy(
+                                            stores = updatedProgress.toList(),
+                                            overallProgress = calculateOverallProgress(updatedProgress, totalTasks)
+                                        )
+                                    }
+                                }
+
+                                override fun onTaskCompleted(task: String) {
+                                    val completed = completedTasks.incrementAndGet()
+                                    val taskEnum = when (task) {
+                                        "Validating URL" -> StoreUpdateTask.VALIDATING_URL
+                                        "Establishing Session" -> StoreUpdateTask.ESTABLISHING_SESSION
+                                        "Fetching Document" -> StoreUpdateTask.FETCHING_DOCUMENT
+                                        "Parsing Content" -> StoreUpdateTask.PARSING_CONTENT
+                                        "Validating Data" -> StoreUpdateTask.VALIDATING_DATA
+                                        "Updating Database" -> StoreUpdateTask.UPDATING_DATABASE
+                                        else -> StoreUpdateTask.COMPLETED
+                                    }
+
+                                    // Move to next task or complete
+                                    val nextTask = when (taskEnum) {
+                                        StoreUpdateTask.VALIDATING_URL -> StoreUpdateTask.ESTABLISHING_SESSION
+                                        StoreUpdateTask.ESTABLISHING_SESSION -> StoreUpdateTask.FETCHING_DOCUMENT
+                                        StoreUpdateTask.FETCHING_DOCUMENT -> StoreUpdateTask.PARSING_CONTENT
+                                        StoreUpdateTask.PARSING_CONTENT -> StoreUpdateTask.VALIDATING_DATA
+                                        StoreUpdateTask.VALIDATING_DATA -> StoreUpdateTask.UPDATING_DATABASE
+                                        StoreUpdateTask.UPDATING_DATABASE -> StoreUpdateTask.COMPLETED
+                                        else -> StoreUpdateTask.COMPLETED
+                                    }
+
+                                    updateProgressState {
+                                        updatedProgress[index] = if (nextTask == StoreUpdateTask.COMPLETED) {
+                                            updatedProgress[index].copy(
+                                                status = StoreUpdateStatus.SUCCESS,
+                                                currentTask = StoreUpdateTask.COMPLETED,
+                                                taskProgress = 100
+                                            )
+                                        } else {
+                                            updatedProgress[index].copy(
+                                                currentTask = nextTask,
+                                                taskProgress = 0
+                                            )
+                                        }
+                                        latestProgressState.copy(
+                                            stores = updatedProgress.toList(),
+                                            overallProgress = calculateOverallProgress(updatedProgress, totalTasks),
+                                            completedTasks = completed
+                                        )
+                                    }
+                                }
+
+                                override fun onError(task: String, error: String) {
+                                    updateProgressState {
+                                        updatedProgress[index] = updatedProgress[index].copy(
+                                            status = StoreUpdateStatus.FAILED,
+                                            errorMessage = "$task: $error"
+                                        )
+                                        latestProgressState.copy(
+                                            stores = updatedProgress.toList()
+                                        )
+                                    }
+                                }
+                            }
+
+                            try {
+                                val result = requestLimiter.run(store.storeUrl) {
+                                    repository.updateSingleStorePrices(store, progressCallback)
+                                }
+
+                                updateProgressState {
+                                    updatedProgress[index] = when (result) {
+                                        is BookRepository.SingleStoreUpdateResult.Success -> {
+                                            updatedProgress[index].copy(
+                                                status = StoreUpdateStatus.SUCCESS,
+                                                newPrice = result.newPrice,
+                                                currentTask = StoreUpdateTask.COMPLETED,
+                                                taskProgress = 100
+                                            )
+                                        }
+                                        is BookRepository.SingleStoreUpdateResult.Failed -> {
+                                            updatedProgress[index].copy(
+                                                status = StoreUpdateStatus.FAILED,
+                                                errorMessage = result.errorMessage
+                                            )
+                                        }
+                                        is BookRepository.SingleStoreUpdateResult.Skipped -> {
+                                            updatedProgress[index].copy(
+                                                status = StoreUpdateStatus.SKIPPED,
+                                                errorMessage = result.reason
+                                            )
+                                        }
+                                    }
+                                    latestProgressState.copy(stores = updatedProgress.toList())
+                                }
+                            } catch (e: Exception) {
+                                recordUiException(
+                                    e,
+                                    "update_single_store_price",
+                                    mapOf("store_host" to hostFrom(store.storeUrl))
                                 )
-                                
-                                _priceUpdateProgress.postValue(_priceUpdateProgress.value?.copy(
-                                    currentStoreIndex = index,
-                                    stores = updatedProgress.toList()
-                                ))
-                            }
-                            
-                            override fun onTaskProgress(task: String, progress: Int) {
-                                val taskEnum = when (task) {
-                                    "Validating URL" -> StoreUpdateTask.VALIDATING_URL
-                                    "Establishing Session" -> StoreUpdateTask.ESTABLISHING_SESSION
-                                    "Fetching Document" -> StoreUpdateTask.FETCHING_DOCUMENT
-                                    "Parsing Content" -> StoreUpdateTask.PARSING_CONTENT
-                                    "Validating Data" -> StoreUpdateTask.VALIDATING_DATA
-                                    "Updating Database" -> StoreUpdateTask.UPDATING_DATABASE
-                                    else -> StoreUpdateTask.PENDING
-                                }
-                                
-                                updatedProgress[index] = updatedProgress[index].copy(
-                                    currentTask = taskEnum,
-                                    taskProgress = progress
-                                )
-                                
-                                // Calculate overall progress
-                                val overallProgress = calculateOverallProgress(updatedProgress, totalTasks)
-                                
-                                _priceUpdateProgress.postValue(_priceUpdateProgress.value?.copy(
-                                    stores = updatedProgress.toList(),
-                                    overallProgress = overallProgress
-                                ))
-                            }
-                            
-                            override fun onTaskCompleted(task: String) {
-                                completedTasks++
-                                val taskEnum = when (task) {
-                                    "Validating URL" -> StoreUpdateTask.VALIDATING_URL
-                                    "Establishing Session" -> StoreUpdateTask.ESTABLISHING_SESSION
-                                    "Fetching Document" -> StoreUpdateTask.FETCHING_DOCUMENT
-                                    "Parsing Content" -> StoreUpdateTask.PARSING_CONTENT
-                                    "Validating Data" -> StoreUpdateTask.VALIDATING_DATA
-                                    "Updating Database" -> StoreUpdateTask.UPDATING_DATABASE
-                                    else -> StoreUpdateTask.COMPLETED
-                                }
-                                
-                                // Move to next task or complete
-                                val nextTask = when (taskEnum) {
-                                    StoreUpdateTask.VALIDATING_URL -> StoreUpdateTask.ESTABLISHING_SESSION
-                                    StoreUpdateTask.ESTABLISHING_SESSION -> StoreUpdateTask.FETCHING_DOCUMENT
-                                    StoreUpdateTask.FETCHING_DOCUMENT -> StoreUpdateTask.PARSING_CONTENT
-                                    StoreUpdateTask.PARSING_CONTENT -> StoreUpdateTask.VALIDATING_DATA
-                                    StoreUpdateTask.VALIDATING_DATA -> StoreUpdateTask.UPDATING_DATABASE
-                                    StoreUpdateTask.UPDATING_DATABASE -> StoreUpdateTask.COMPLETED
-                                    else -> StoreUpdateTask.COMPLETED
-                                }
-                                
-                                if (nextTask == StoreUpdateTask.COMPLETED) {
-                                    updatedProgress[index] = updatedProgress[index].copy(
-                                        status = StoreUpdateStatus.SUCCESS,
-                                        currentTask = StoreUpdateTask.COMPLETED,
-                                        taskProgress = 100
-                                    )
-                                } else {
-                                    updatedProgress[index] = updatedProgress[index].copy(
-                                        currentTask = nextTask,
-                                        taskProgress = 0
-                                    )
-                                }
-                                
-                                // Calculate overall progress
-                                val overallProgress = calculateOverallProgress(updatedProgress, totalTasks)
-                                
-                                _priceUpdateProgress.postValue(_priceUpdateProgress.value?.copy(
-                                    stores = updatedProgress.toList(),
-                                    overallProgress = overallProgress,
-                                    completedTasks = completedTasks
-                                ))
-                            }
-                            
-                            override fun onError(task: String, error: String) {
-                                updatedProgress[index] = updatedProgress[index].copy(
-                                    status = StoreUpdateStatus.FAILED,
-                                    errorMessage = "$task: $error"
-                                )
-                                
-                                _priceUpdateProgress.postValue(_priceUpdateProgress.value?.copy(
-                                    stores = updatedProgress.toList()
-                                ))
-                            }
-                        }
-                        
-                        try {
-                            when (val result = repository.updateSingleStorePrices(store, progressCallback)) {
-                                is BookRepository.SingleStoreUpdateResult.Success -> {
-                                    updatedProgress[index] = updatedProgress[index].copy(
-                                        status = StoreUpdateStatus.SUCCESS,
-                                        newPrice = result.newPrice,
-                                        currentTask = StoreUpdateTask.COMPLETED,
-                                        taskProgress = 100
-                                    )
-                                    successCount++
-                                }
-                                is BookRepository.SingleStoreUpdateResult.Failed -> {
+                                updateProgressState {
                                     updatedProgress[index] = updatedProgress[index].copy(
                                         status = StoreUpdateStatus.FAILED,
-                                        errorMessage = result.errorMessage
+                                        errorMessage = "Unexpected error: ${e.message}"
                                     )
-                                    failureCount++
-                                }
-                                is BookRepository.SingleStoreUpdateResult.Skipped -> {
-                                    updatedProgress[index] = updatedProgress[index].copy(
-                                        status = StoreUpdateStatus.SKIPPED,
-                                        errorMessage = result.reason
-                                    )
-                                    // Don't count skipped as failures
+                                    latestProgressState.copy(stores = updatedProgress.toList())
                                 }
                             }
-                        } catch (e: Exception) {
-                            recordUiException(
-                                e,
-                                "update_single_store_price",
-                                mapOf("store_host" to hostFrom(store.storeUrl))
-                            )
-                            updatedProgress[index] = updatedProgress[index].copy(
-                                status = StoreUpdateStatus.FAILED,
-                                errorMessage = "Unexpected error: ${e.message}"
-                            )
-                            failureCount++
                         }
-                        
-                        // Update progress after each store finishes
-                        _priceUpdateProgress.postValue(_priceUpdateProgress.value?.copy(
-                            stores = updatedProgress.toList()
-                        ))
                     }
                 }
                 
@@ -959,11 +982,15 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 deferredResults.awaitAll()
                 
                 // Mark as complete
-                _priceUpdateProgress.value = _priceUpdateProgress.value?.copy(
-                    isComplete = true,
-                    currentStoreIndex = updatableStores.size,
-                    overallProgress = 100
-                )
+                val completeProgressState = synchronized(progressLock) {
+                    latestProgressState = latestProgressState.copy(
+                        isComplete = true,
+                        currentStoreIndex = updatableStores.size,
+                        overallProgress = 100
+                    )
+                    latestProgressState
+                }
+                _priceUpdateProgress.postValue(completeProgressState)
                 
                 // Note: No toast messages for price updates - results are shown in the dialog
             } catch (e: Exception) {
