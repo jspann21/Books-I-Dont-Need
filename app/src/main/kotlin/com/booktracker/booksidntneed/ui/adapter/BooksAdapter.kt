@@ -314,8 +314,7 @@ class BooksAdapter(
             setupPriceInfo(bookWithStores)
 
             // Store count and expansion
-            val storesForDisplay = bookWithStores.getStoresForDisplay()
-            setupStoreInfo(bookWithStores, storesForDisplay)
+            setupStoreInfo(bookWithStores)
 
             // Date added
             val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
@@ -336,7 +335,7 @@ class BooksAdapter(
             binding.viewStoresButton.setOnClickListener {
                 if (bookWithStores.stores.size == 1) {
                     // For single store, go directly to store
-                    onStoreClick(storesForDisplay.first())
+                    onStoreClick(bookWithStores.stores.first())
                 } else {
                     // For multiple stores, toggle the expanded view
                     toggleStoresVisibility(bookWithStores)
@@ -351,7 +350,7 @@ class BooksAdapter(
             binding.priceTextView.text = binding.root.context.getPriceText(lowestPrice, highestPrice)
         }
 
-        private fun setupStoreInfo(bookWithStores: BookWithStores, storesForDisplay: List<BookStore>) {
+        private fun setupStoreInfo(bookWithStores: BookWithStores) {
             when (val storeCount = bookWithStores.stores.size) {
                 0 -> {
                     binding.storeCountTextView.setText(R.string.no_stores_available)
@@ -360,7 +359,7 @@ class BooksAdapter(
                 1 -> {
                     binding.storeCountTextView.text = binding.root.context.getString(
                         R.string.available_at_store,
-                        storesForDisplay.first().storeName
+                        bookWithStores.stores.first().storeName
                     )
                     binding.viewStoresButton.setText(R.string.visit_store)
                     binding.viewStoresButton.visibility = View.VISIBLE
@@ -371,15 +370,6 @@ class BooksAdapter(
                     binding.viewStoresButton.visibility = View.VISIBLE
                 }
             }
-
-            // Setup stores adapter
-            if (storesAdapter == null) {
-                storesAdapter = StoresAdapter(
-                    onStoreClick = onStoreClick
-                )
-            }
-            binding.storesRecyclerView.adapter = storesAdapter
-            storesAdapter?.submitList(storesForDisplay)
         }
 
         private fun setupIsbnInfo(book: Book) {
@@ -391,11 +381,24 @@ class BooksAdapter(
             binding.storesRecyclerView.visibility = if (isStoresExpanded) View.VISIBLE else View.GONE
             
             if (isStoresExpanded) {
+                ensureStoresAdapter()
+                storesAdapter?.submitList(bookWithStores.getStoresForDisplay())
                 binding.viewStoresButton.setText(R.string.hide_stores)
             } else {
                 // When collapsing, restore the correct button text based on store count
                 val storeCount = bookWithStores.stores.size
                 binding.viewStoresButton.setText(if (storeCount == 1) R.string.visit_store else R.string.view_stores)
+            }
+        }
+
+        private fun ensureStoresAdapter() {
+            if (storesAdapter == null) {
+                storesAdapter = StoresAdapter(
+                    onStoreClick = onStoreClick
+                )
+            }
+            if (binding.storesRecyclerView.adapter == null) {
+                binding.storesRecyclerView.adapter = storesAdapter
             }
         }
         
@@ -573,7 +576,7 @@ class BooksAdapter(
         }
 
         private fun setupExpandedStoreInfo(bookWithStores: BookWithStores) {
-            val storesForDisplay = bookWithStores.getStoresForDisplay()
+            binding.storesRecyclerView.visibility = View.GONE
 
             when (val storeCount = bookWithStores.stores.size) {
                 0 -> {
@@ -583,13 +586,13 @@ class BooksAdapter(
                 1 -> {
                     binding.expandedStoreCountTextView.text = binding.root.context.getString(
                         R.string.available_at_store,
-                        storesForDisplay.first().storeName
+                        bookWithStores.stores.first().storeName
                     )
                     binding.viewStoresButton.setText(R.string.visit_store)
                     binding.viewStoresButton.visibility = View.VISIBLE
 
                     binding.viewStoresButton.setOnClickListener {
-                        onStoreClick(storesForDisplay.first())
+                        onStoreClick(bookWithStores.stores.first())
                     }
                 }
                 else -> {
@@ -598,29 +601,33 @@ class BooksAdapter(
                     binding.viewStoresButton.visibility = View.VISIBLE
 
                     binding.viewStoresButton.setOnClickListener {
-                        toggleStoresVisibility()
+                        toggleStoresVisibility(bookWithStores)
                     }
                 }
             }
-
-            // Setup stores adapter
-            if (storesAdapter == null) {
-                storesAdapter = StoresAdapter(
-                    onStoreClick = onStoreClick
-                )
-            }
-            binding.storesRecyclerView.adapter = storesAdapter
-            storesAdapter?.submitList(storesForDisplay)
         }
 
-        private fun toggleStoresVisibility() {
+        private fun toggleStoresVisibility(bookWithStores: BookWithStores) {
             val isStoresExpanded = binding.storesRecyclerView.isVisible
             binding.storesRecyclerView.visibility = if (isStoresExpanded) View.GONE else View.VISIBLE
             
             if (isStoresExpanded) {
                 binding.viewStoresButton.setText(R.string.view_stores)
             } else {
+                ensureStoresAdapter()
+                storesAdapter?.submitList(bookWithStores.getStoresForDisplay())
                 binding.viewStoresButton.setText(R.string.hide_stores)
+            }
+        }
+
+        private fun ensureStoresAdapter() {
+            if (storesAdapter == null) {
+                storesAdapter = StoresAdapter(
+                    onStoreClick = onStoreClick
+                )
+            }
+            if (binding.storesRecyclerView.adapter == null) {
+                binding.storesRecyclerView.adapter = storesAdapter
             }
         }
 
