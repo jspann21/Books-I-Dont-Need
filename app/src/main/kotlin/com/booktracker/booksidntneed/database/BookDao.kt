@@ -11,6 +11,7 @@ import androidx.room.Transaction
 import androidx.room.Update
 import androidx.sqlite.db.SupportSQLiteQuery
 import com.booktracker.booksidntneed.model.Book
+import com.booktracker.booksidntneed.model.BookStore
 import com.booktracker.booksidntneed.model.BookWithSortData
 import com.booktracker.booksidntneed.model.BookWithStores
 
@@ -121,9 +122,8 @@ interface BookDao {
     // New methods for the DatabaseView approach
     @RawQuery(observedEntities = [BookWithSortDataView::class])
     fun getBooksWithSortData(query: SupportSQLiteQuery): LiveData<List<BookWithSortData>>
-    
-    // We still need this to fetch the full objects for the adapter
+
     @Transaction
-    @Query("SELECT * FROM books WHERE id IN (:bookIds)")
-    fun getBooksWithStoresByIds(bookIds: List<Long>): LiveData<List<BookWithStores>>
+    @RawQuery(observedEntities = [Book::class, BookStore::class])
+    fun getFilteredAndSortedBooks(query: SupportSQLiteQuery): LiveData<List<BookWithStores>>
 } 

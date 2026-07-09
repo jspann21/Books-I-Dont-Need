@@ -2,13 +2,11 @@ package com.booktracker.booksidntneed.repository
 
 import android.util.Log
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.MediatorLiveData
 import androidx.room.withTransaction
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.booktracker.booksidntneed.database.BookDatabase
 import com.booktracker.booksidntneed.model.Book
 import com.booktracker.booksidntneed.model.BookStore
-import com.booktracker.booksidntneed.model.BookWithSortData
 import com.booktracker.booksidntneed.model.BookWithStores
 import com.booktracker.booksidntneed.model.Category
 import com.booktracker.booksidntneed.network.ParsedBookInfo
@@ -34,64 +32,41 @@ class BookRepository(
         return database.withTransaction(block)
     }
 
-    // New optimized filtering and sorting methods using DatabaseView
     fun getFilteredAndSortedBooks(
         sortOrder: com.booktracker.booksidntneed.ui.MainViewModel.SortOrder,
         category: String?
     ): LiveData<List<BookWithStores>> {
-        val result = MediatorLiveData<List<BookWithStores>>()
-        val sortedBookDataLiveData = getSortedBookData(sortOrder, category)
-
-        var booksWithStoresSource: LiveData<List<BookWithStores>>? = null
-
-        val sortedBookDataObserver = androidx.lifecycle.Observer<List<BookWithSortData>> { sortedList ->
-            if (sortedList.isEmpty()) {
-                result.value = emptyList()
-                return@Observer
-            }
-            val sortedIds = sortedList.map { it.book.id }
-            booksWithStoresSource?.let { result.removeSource(it) }
-            val newSource = bookDao.getBooksWithStoresByIds(sortedIds)
-            booksWithStoresSource = newSource
-            result.addSource(newSource) { unsortedFullBooks ->
-                val idToBookMap = unsortedFullBooks.associateBy { it.book.id }
-                result.value = sortedIds.mapNotNull { idToBookMap[it] }
-            }
-        }
-
-        result.addSource(sortedBookDataLiveData, sortedBookDataObserver)
-        return result
-    }
-
-    private fun getSortedBookData(sortOrder: com.booktracker.booksidntneed.ui.MainViewModel.SortOrder, category: String?): LiveData<List<BookWithSortData>> {
         val sortColumn = when (sortOrder) {
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.TITLE_ASC -> "title ASC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.TITLE_DESC -> "title DESC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.AUTHOR_ASC -> "author ASC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.AUTHOR_DESC -> "author DESC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.DATE_ADDED_ASC -> "dateAdded ASC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.DATE_ADDED_DESC -> "dateAdded DESC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.PRICE_ASC -> "lowestPrice ASC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.PRICE_DESC -> "lowestPrice DESC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.STORE_NAME_ASC -> "primaryStoreName ASC"
-            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.STORE_NAME_DESC -> "primaryStoreName DESC"
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.TITLE_ASC -> "b.title ASC"
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.TITLE_DESC -> "b.title DESC"
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.AUTHOR_ASC -> "b.author ASC"
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.AUTHOR_DESC -> "b.author DESC"
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.DATE_ADDED_ASC -> "b.dateAdded ASC"
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.DATE_ADDED_DESC -> "b.dateAdded DESC"
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.PRICE_ASC -> "MIN(s.price) ASC"
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.PRICE_DESC -> "MIN(s.price) DESC"
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.STORE_NAME_ASC -> "MIN(s.storeName) ASC"
+            com.booktracker.booksidntneed.ui.MainViewModel.SortOrder.STORE_NAME_DESC -> "MIN(s.storeName) DESC"
         }
 
-        // Use '?' for parameter binding to prevent SQL injection
-        // null category means "All Categories" (no filtering)
+        val baseQuery = """
+            SELECT b.*
+            FROM books AS b
+            LEFT JOIN book_stores AS s ON b.id = s.bookId
+        """.trimIndent()
         val query = if (category == null) {
-            "SELECT * FROM BookWithSortDataView ORDER BY $sortColumn"
+            "$baseQuery GROUP BY b.id ORDER BY $sortColumn"
         } else {
-            "SELECT * FROM BookWithSortDataView WHERE category = ? ORDER BY $sortColumn"
+            "$baseQuery WHERE b.category = ? GROUP BY b.id ORDER BY $sortColumn"
         }
-        
+
         val simpleSQLiteQuery = if (category == null) {
             SimpleSQLiteQuery(query)
         } else {
             SimpleSQLiteQuery(query, arrayOf(category))
         }
-        
-        return bookDao.getBooksWithSortData(simpleSQLiteQuery)
+
+        return bookDao.getFilteredAndSortedBooks(simpleSQLiteQuery)
     }
 
     suspend fun deleteBook(book: Book) {
