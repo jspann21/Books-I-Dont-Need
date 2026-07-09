@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.room.withTransaction
 import androidx.sqlite.db.SimpleSQLiteQuery
+import com.booktracker.booksidntneed.database.AutoUpdateStoreTarget
 import com.booktracker.booksidntneed.database.BookDatabase
 import com.booktracker.booksidntneed.model.Book
 import com.booktracker.booksidntneed.model.BookStore
@@ -735,6 +736,11 @@ class BookRepository(
         if (bookIds.isEmpty()) return emptyList()
         Log.d("BookTracker", "BookRepository: Bulk looking up stores for ${bookIds.size} books")
         return bookStoreDao.getStoresForBooks(bookIds)
+    }
+
+    suspend fun getAutoUpdateStoreTargets(): List<AutoUpdateStoreTarget> {
+        Log.d("BookTracker", "BookRepository: Loading scrapeable stores for background price update")
+        return bookStoreDao.getAutoUpdateStoreTargets()
     }
 
     suspend fun getCategoriesByNames(names: List<String>): List<Category> {

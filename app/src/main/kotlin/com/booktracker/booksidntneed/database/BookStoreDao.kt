@@ -10,6 +10,12 @@ import androidx.room.Update
 import androidx.room.Delete
 import androidx.room.OnConflictStrategy
 
+data class AutoUpdateStoreTarget(
+    val bookTitle: String,
+    @Embedded(prefix = "store_")
+    val store: BookStore
+)
+
 @Dao
 interface BookStoreDao {
     
@@ -21,6 +27,26 @@ interface BookStoreDao {
 
     @Query("SELECT * FROM book_stores WHERE bookId IN (:bookIds)")
     suspend fun getStoresForBooks(bookIds: List<Long>): List<BookStore>
+
+    @Query("""
+        SELECT
+            b.title AS bookTitle,
+            s.id AS store_id,
+            s.bookId AS store_bookId,
+            s.storeName AS store_storeName,
+            s.storeUrl AS store_storeUrl,
+            s.price AS store_price,
+            s.currency AS store_currency,
+            s.availability AS store_availability,
+            s.dateAdded AS store_dateAdded,
+            s.lastUpdated AS store_lastUpdated
+        FROM book_stores AS s
+        INNER JOIN books AS b ON b.id = s.bookId
+        WHERE TRIM(s.storeUrl) != ''
+            AND s.storeUrl != 'Manual Entry'
+        ORDER BY b.title ASC, s.storeName ASC
+    """)
+    suspend fun getAutoUpdateStoreTargets(): List<AutoUpdateStoreTarget>
     
     @Query("SELECT * FROM book_stores ORDER BY storeName ASC")
     fun getAllStores(): LiveData<List<BookStore>>

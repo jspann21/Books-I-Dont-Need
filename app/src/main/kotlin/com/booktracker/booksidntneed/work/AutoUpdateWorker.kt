@@ -15,17 +15,15 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.booktracker.booksidntneed.BookTrackerApplication
-import com.booktracker.booksidntneed.model.BookWithStores
+import com.booktracker.booksidntneed.database.AutoUpdateStoreTarget
 import com.booktracker.booksidntneed.repository.BookRepository
 import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
 import com.booktracker.booksidntneed.utils.ErrorReporter
 import com.booktracker.booksidntneed.utils.PriceChangeEntry
 import com.booktracker.booksidntneed.utils.UpdateSummary
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Collections
@@ -82,16 +80,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
     override suspend fun doWork(): Result {
         return try {
             Log.d(TAG, "AutoUpdateWorker: Starting background update")
-            val allBooks: List<BookWithStores> = withContext(Dispatchers.IO) {
-                // Reuse export query which returns all books with stores
-                repository.getAllBooksForExport()
-            }
-
-            val updateTargets = allBooks.flatMap { book ->
-                book.stores
-                    .filter { store -> store.storeUrl.isNotBlank() && store.storeUrl != "Manual Entry" }
-                    .map { store -> PriceUpdateTarget(book, store) }
-            }
+            val updateTargets = repository.getAutoUpdateStoreTargets()
             val totalStores = updateTargets.size
             val storesProcessed = AtomicInteger(0)
             val totalChecked = AtomicInteger(0)
@@ -109,9 +98,9 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             }
             setProgressData(0, totalStores, initialProgressText)
 
-            suspend fun processTarget(target: PriceUpdateTarget) {
-                val book = target.book
+            suspend fun processTarget(target: AutoUpdateStoreTarget) {
                 val store = target.store
+                val bookTitle = target.bookTitle
                 if (isStopped) {
                     Log.d(TAG, "AutoUpdateWorker: Skipping remaining work because worker stopped")
                     return
@@ -133,8 +122,8 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                             }
                             changeEntries.add(
                                 PriceChangeEntry(
-                                    bookId = book.book.id,
-                                    bookTitle = book.book.title,
+                                    bookId = store.bookId,
+                                    bookTitle = bookTitle,
                                     storeName = store.storeName,
                                     oldPrice = before,
                                     newPrice = after,
@@ -145,7 +134,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                     }
                 } catch (e: Exception) {
                     failedUpdates.incrementAndGet()
-                    Log.e(TAG, "Failed to update store for book '${book.book.title}' (${store.storeName}): ${e.message}")
+                    Log.e(TAG, "Failed to update store for book '$bookTitle' (${store.storeName}): ${e.message}")
                     ErrorReporter.recordException(
                         e,
                         "Background price update failed for one store",
@@ -156,7 +145,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                     )
                 } finally {
                     val processed = storesProcessed.incrementAndGet()
-                    updateProgress(processed, totalStores, book.book.title)
+                    updateProgress(processed, totalStores, bookTitle)
                 }
             }
 
@@ -295,11 +284,6 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             .getOrDefault("unknown")
             .ifBlank { "unknown" }
     }
-
-    private data class PriceUpdateTarget(
-        val book: BookWithStores,
-        val store: com.booktracker.booksidntneed.model.BookStore
-    )
 
     companion object {
         private const val TAG = "AutoUpdateWorker"
