@@ -196,7 +196,9 @@
             android:id="@+id/autoUpdateSwitch"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:useMaterialThemeColors="true" />
+            app:useMaterialThemeColors="true"
+            app:trackTint="@color/switch_track_color"
+            app:thumbTint="@color/switch_thumb_color" />
     </LinearLayout>
 
     <TextView
