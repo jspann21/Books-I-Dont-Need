@@ -58,7 +58,13 @@ object AutoUpdateNotifier {
         val increasesSuffix = if (summary.increases > 0) {
             context.getString(R.string.update_increases_suffix, summary.increases)
         } else ""
-        val content = if (summary.changed > 0) "$dropsText$increasesSuffix" else context.getString(R.string.summary_no_changes)
+        val changeText = if (summary.changed > 0) "$dropsText$increasesSuffix" else context.getString(R.string.summary_no_changes)
+        val issueText = if (summary.failed > 0 || summary.skipped > 0) {
+            context.getString(R.string.summary_update_issues, summary.failed, summary.skipped)
+        } else {
+            ""
+        }
+        val content = listOf(changeText, issueText).filter { it.isNotBlank() }.joinToString(" · ")
 
         val intent = Intent(context, MainActivity::class.java).apply {
             action = ACTION_SHOW_RECENT_CHANGES

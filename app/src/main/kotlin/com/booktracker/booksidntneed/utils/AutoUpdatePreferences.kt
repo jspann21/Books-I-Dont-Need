@@ -59,8 +59,9 @@ data class UpdateSummary(
     val changed: Int,
     val drops: Int,
     val increases: Int,
+    val failed: Int,
+    val skipped: Int,
     val changes: List<PriceChangeEntry>,
     val completedAt: Long
 )
-
 

@@ -157,6 +157,7 @@
     <string name="choose_time">Choose time</string>
     <string name="summary_price_drops">%1$d price drop(s)</string>
     <string name="summary_no_changes">No price changes detected</string>
+    <string name="summary_update_issues">%1$d failed, %2$d skipped</string>
     <string name="update_complete_title">Book prices updated</string>
     <string name="update_increases_suffix"> and %1$d increase(s)</string>
     <string name="recent_price_changes_title">Recent price changes</string>

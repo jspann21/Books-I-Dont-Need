@@ -88,6 +88,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             val drops = AtomicInteger(0)
             val increases = AtomicInteger(0)
             val failedUpdates = AtomicInteger(0)
+            val skippedUpdates = AtomicInteger(0)
             val changeEntries = Collections.synchronizedList(mutableListOf<PriceChangeEntry>())
             val requestLimiter = ResponsiblePriceUpdateLimiter()
 
@@ -114,22 +115,38 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                         repository.updateSingleStorePrices(store)
                     }
 
-                    if (updateResult is BookRepository.SingleStoreUpdateResult.Success) {
-                        val after = updateResult.newPrice
-                        if (before != after) {
-                            changes.incrementAndGet()
-                            if (before != null && after != null) {
-                                if (after < before) drops.incrementAndGet() else increases.incrementAndGet()
-                            }
-                            changeEntries.add(
-                                PriceChangeEntry(
-                                    bookId = store.bookId,
-                                    bookTitle = bookTitle,
-                                    storeName = store.storeName,
-                                    oldPrice = before,
-                                    newPrice = after,
-                                    timestamp = System.currentTimeMillis()
+                    when (updateResult) {
+                        is BookRepository.SingleStoreUpdateResult.Success -> {
+                            val after = updateResult.newPrice
+                            if (before != after) {
+                                changes.incrementAndGet()
+                                if (before != null && after != null) {
+                                    if (after < before) drops.incrementAndGet() else increases.incrementAndGet()
+                                }
+                                changeEntries.add(
+                                    PriceChangeEntry(
+                                        bookId = store.bookId,
+                                        bookTitle = bookTitle,
+                                        storeName = store.storeName,
+                                        oldPrice = before,
+                                        newPrice = after,
+                                        timestamp = System.currentTimeMillis()
+                                    )
                                 )
+                            }
+                        }
+                        is BookRepository.SingleStoreUpdateResult.Failed -> {
+                            failedUpdates.incrementAndGet()
+                            Log.w(
+                                TAG,
+                                "Price update failed for '$bookTitle' (${store.storeName}): ${updateResult.errorMessage}"
+                            )
+                        }
+                        is BookRepository.SingleStoreUpdateResult.Skipped -> {
+                            skippedUpdates.incrementAndGet()
+                            Log.d(
+                                TAG,
+                                "Price update skipped for '$bookTitle' (${store.storeName}): ${updateResult.reason}"
                             )
                         }
                     }
@@ -171,6 +188,8 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 changed = changes.get(),
                 drops = drops.get(),
                 increases = increases.get(),
+                failed = failedUpdates.get(),
+                skipped = skippedUpdates.get(),
                 changes = changeEntries,
                 completedAt = System.currentTimeMillis()
             )
@@ -185,7 +204,10 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 .setPackage(applicationContext.packageName)
             applicationContext.sendBroadcast(intent)
 
-            Log.d(TAG, "AutoUpdateWorker: Completed with ${summary.changed} changes and ${failedUpdates.get()} failures")
+            Log.d(
+                TAG,
+                "AutoUpdateWorker: Completed with ${summary.changed} changes, ${summary.failed} failures, and ${summary.skipped} skipped"
+            )
             Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "AutoUpdateWorker: Failed", e)
@@ -206,6 +228,8 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
         obj.put("changed", summary.changed)
         obj.put("drops", summary.drops)
         obj.put("increases", summary.increases)
+        obj.put("failed", summary.failed)
+        obj.put("skipped", summary.skipped)
         obj.put("completedAt", summary.completedAt)
         val arr = JSONArray()
         summary.changes.forEach { c ->
