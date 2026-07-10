@@ -4,16 +4,9 @@ import android.app.Application
 import com.booktracker.booksidntneed.database.BookDatabase
 import com.booktracker.booksidntneed.network.WebScrapingService
 import com.booktracker.booksidntneed.repository.BookRepository
-import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
 import com.booktracker.booksidntneed.utils.ErrorReporter
 import com.booktracker.booksidntneed.utils.ThemePreferences
 import com.booktracker.booksidntneed.work.AutoUpdateNotifier
-import com.booktracker.booksidntneed.work.AutoUpdateScheduler
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
 class BookTrackerApplication : Application() {
     
@@ -27,8 +20,6 @@ class BookTrackerApplication : Application() {
         )
     }
 
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
     override fun onCreate() {
         super.onCreate()
         ErrorReporter.initialize(this)
@@ -36,13 +27,5 @@ class BookTrackerApplication : Application() {
         ThemePreferences.applySavedTheme(this)
         // Ensure notification channel exists
         AutoUpdateNotifier.ensureChannel(this)
-        // Re-schedule daily worker if enabled
-        appScope.launch {
-            val enabled = AutoUpdatePreferences.isEnabled(this@BookTrackerApplication).first()
-            if (enabled) {
-                val minutes = AutoUpdatePreferences.timeMinutes(this@BookTrackerApplication).first()
-                AutoUpdateScheduler.scheduleDaily(this@BookTrackerApplication, minutes)
-            }
-        }
     }
 } 
