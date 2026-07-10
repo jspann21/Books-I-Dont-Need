@@ -1,6 +1,7 @@
 package com.booktracker.booksidntneed.network
 
 import android.util.Log
+import android.os.SystemClock
 import com.booktracker.booksidntneed.utils.ErrorReporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -12,9 +13,12 @@ import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.UnknownHostException
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import javax.net.ssl.SSLException
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 // Progress callback interface for granular progress tracking
 interface ScrapingProgressCallback {
@@ -26,6 +30,8 @@ interface ScrapingProgressCallback {
 
 class WebScrapingService {
     private val session = CookieSession()
+    private val sessionLocks = ConcurrentHashMap<String, Mutex>()
+    private val sessionEstablishedAt = ConcurrentHashMap<String, Long>()
 
     suspend fun scrapeBookInfo(url: String, progressCallback: ScrapingProgressCallback? = null): ScrapingResult = withContext(Dispatchers.IO) {
         val strategy = StoreRequestStrategyFactory.getStrategy(url)
@@ -232,15 +238,7 @@ class WebScrapingService {
             Log.d("BookTracker", "WebScraping: Canonicalized URL from '$url' to '$canonicalUrl'")
         }
 
-        progressCallback?.onTaskStarted("Establishing Session", 0)
-        try {
-            progressCallback?.onTaskProgress("Establishing Session", 50)
-            strategy.establishSession(session)
-            progressCallback?.onTaskProgress("Establishing Session", 100)
-        } catch (e: Exception) {
-            Log.w("BookTracker", "WebScraping: Failed to establish ${strategy.storeName} session, continuing anyway: ${e.message}")
-        }
-        progressCallback?.onTaskCompleted("Establishing Session")
+        ensureSession(strategy, progressCallback)
 
         progressCallback?.onTaskStarted("Fetching Document", 0)
 
@@ -250,6 +248,9 @@ class WebScrapingService {
 
         for (attempt in retryPolicy.startAttempt..retryPolicy.maxAttempts) {
             try {
+                if (attempt > retryPolicy.startAttempt) {
+                    ensureSession(strategy, null)
+                }
                 Log.d("BookTracker", "WebScraping: Fetch attempt $attempt of ${retryPolicy.maxAttempts} for URL: $canonicalUrl")
                 val attemptProgress = ((attempt - retryPolicy.startAttempt + 1) * 100) / totalAttempts
                 progressCallback?.onTaskProgress("Fetching Document", attemptProgress)
@@ -271,6 +272,9 @@ class WebScrapingService {
                 }
             } catch (e: Exception) {
                 Log.w("BookTracker", "WebScraping: Exception on attempt $attempt: ${e.message}")
+                if (shouldRefreshSession(e)) {
+                    sessionEstablishedAt.remove(sessionKey(strategy))
+                }
                 lastException = e
                 if (!retryPolicy.shouldRetry(e, attempt)) {
                     throw e
@@ -279,6 +283,49 @@ class WebScrapingService {
         }
 
         throw lastException ?: SocketTimeoutException("All retry attempts failed")
+    }
+
+    private suspend fun ensureSession(
+        strategy: StoreRequestStrategy,
+        progressCallback: ScrapingProgressCallback?
+    ) {
+        val key = sessionKey(strategy)
+        val now = SystemClock.elapsedRealtime()
+        val establishedAt = sessionEstablishedAt[key]
+        if (establishedAt != null && now - establishedAt < SESSION_TTL_MS) {
+            return
+        }
+
+        sessionLocks.getOrPut(key) { Mutex() }.withLock {
+            val refreshedAt = sessionEstablishedAt[key]
+            val lockNow = SystemClock.elapsedRealtime()
+            if (refreshedAt != null && lockNow - refreshedAt < SESSION_TTL_MS) {
+                return@withLock
+            }
+
+            progressCallback?.onTaskStarted("Establishing Session", 0)
+            try {
+                progressCallback?.onTaskProgress("Establishing Session", 50)
+                strategy.establishSession(session)
+                sessionEstablishedAt[key] = SystemClock.elapsedRealtime()
+                progressCallback?.onTaskProgress("Establishing Session", 100)
+            } catch (e: Exception) {
+                Log.w("BookTracker", "WebScraping: Failed to establish ${strategy.storeName} session, continuing anyway: ${e.message}")
+            } finally {
+                progressCallback?.onTaskCompleted("Establishing Session")
+            }
+        }
+    }
+
+    private fun sessionKey(strategy: StoreRequestStrategy): String = strategy.javaClass.name
+
+    private fun shouldRefreshSession(error: Exception): Boolean {
+        val message = error.message.orEmpty()
+        return message.contains("403") ||
+            message.contains("401") ||
+            message.contains("blocked", ignoreCase = true) ||
+            message.contains("captcha", ignoreCase = true) ||
+            message.contains("verification", ignoreCase = true)
     }
 
     private suspend fun fetchDocument(url: String, attempt: Int, strategy: StoreRequestStrategy): Document = withContext(Dispatchers.IO) {
@@ -346,6 +393,10 @@ class WebScrapingService {
     }
 
     private class UrlParseFailureException(message: String) : Exception(message)
+
+    companion object {
+        private const val SESSION_TTL_MS = 30 * 60 * 1000L
+    }
 
     sealed class ScrapingResult {
         data class Success(val bookInfo: ParsedBookInfo) : ScrapingResult()
