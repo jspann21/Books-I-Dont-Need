@@ -343,6 +343,7 @@ class WebScrapingService {
 
         val document = connection.get()
         strategy.blockedPageError(document)?.let { error -> throw IllegalStateException(error) }
+        strategy.updateSession(connection.response().cookies(), session)
         document
     }
 

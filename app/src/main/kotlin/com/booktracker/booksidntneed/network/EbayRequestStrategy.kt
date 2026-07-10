@@ -55,6 +55,11 @@ class EbayRequestStrategy : StoreRequestStrategy {
     override suspend fun establishSession(session: CookieSession) {
         Log.d("BookTracker", "EbayRequestStrategy: Visiting eBay homepage to establish session...")
 
+        // eBay binds its bot-management cookies to the browser identity that created
+        // them. Do not carry cookies from a challenged or differently configured
+        // request into the new session.
+        session.clear(SESSION_COOKIE_PREFIX)
+
         val homepageConnection = Jsoup.connect("https://www.ebay.com/")
             .followRedirects(true)
             .ignoreHttpErrors(true)
@@ -62,68 +67,60 @@ class EbayRequestStrategy : StoreRequestStrategy {
             .timeout(15000)
             .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
             .header("Accept-Language", "en-US,en;q=0.9")
-            .header("DNT", "1")
-            .header("Connection", "keep-alive")
             .header("Upgrade-Insecure-Requests", "1")
-            .header("Sec-Fetch-Dest", "document")
-            .header("Sec-Fetch-Mode", "navigate")
-            .header("Sec-Fetch-Site", "none")
-            .header("Sec-Fetch-User", "?1")
-            .header("Cache-Control", "max-age=0")
 
         val homepageDoc = homepageConnection.get()
+        blockedPageError(homepageDoc)?.let { error -> throw IllegalStateException(error) }
+        if (homepageConnection.response().statusCode() !in 200..299) {
+            throw IllegalStateException("eBay session setup returned HTTP ${homepageConnection.response().statusCode()}")
+        }
         Log.d("BookTracker", "EbayRequestStrategy: Successfully visited eBay homepage (title='${homepageDoc.title()}')")
 
-        session.putAll(homepageConnection.response().cookies(), prefix = "ebay_")
+        session.putAll(homepageConnection.response().cookies(), prefix = SESSION_COOKIE_PREFIX)
     }
 
     override fun configureRequest(connection: Connection, attempt: Int, session: CookieSession) {
-        val userAgent = when (attempt % 3) {
-            0 -> RequestStrategyUtils.DESKTOP_USER_AGENT
-            1 -> RequestStrategyUtils.FIREFOX_USER_AGENT
-            else -> RequestStrategyUtils.EDGE_USER_AGENT
-        }
+        // Keep this identity identical to establishSession(). Previously attempt 1
+        // changed to Firefox while sending cookies issued to Chrome, which reliably
+        // redirected otherwise valid listings to /splashui/challenge.
+        connection
+            .userAgent(RequestStrategyUtils.DESKTOP_USER_AGENT)
+            .timeout(RequestStrategyUtils.EXTENDED_CONNECTION_TIMEOUT)
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Accept-Encoding", "gzip, deflate")
+            .header("Upgrade-Insecure-Requests", "1")
+            .referrer("https://www.ebay.com/")
 
-        RequestStrategyUtils.configureEnhancedBrowserHeaders(
-            connection = connection,
-            userAgent = userAgent,
-            timeout = RequestStrategyUtils.EXTENDED_CONNECTION_TIMEOUT,
-            attempt = attempt
-        )
-
-        when (userAgent) {
-            RequestStrategyUtils.FIREFOX_USER_AGENT -> {
-                connection.header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-                connection.header("Accept-Language", "en-US,en;q=0.5")
-                connection.header("Accept-Encoding", "gzip, deflate")
-            }
-            RequestStrategyUtils.EDGE_USER_AGENT -> {
-                RequestStrategyUtils.configureChromiumClientHints(connection, browser = "Microsoft Edge")
-            }
-            else -> {
-                RequestStrategyUtils.configureChromiumClientHints(connection)
-            }
-        }
-
-        when (attempt) {
-            1 -> {
-                connection.referrer("https://www.google.com/search?q=ebay+books")
-                connection.header("Sec-Fetch-Site", "cross-site")
-            }
-            else -> {
-                connection.referrer("https://www.ebay.com/")
-                connection.header("Sec-Fetch-Site", "same-origin")
-            }
-        }
-
-        val ebayCookies = session.matching("ebay_", stripPrefix = true)
+        val ebayCookies = session.matching(SESSION_COOKIE_PREFIX, stripPrefix = true)
         if (ebayCookies.isNotEmpty()) {
             connection.cookies(ebayCookies)
         }
     }
 
+    override fun updateSession(responseCookies: Map<String, String>, session: CookieSession) {
+        session.putAll(responseCookies, prefix = SESSION_COOKIE_PREFIX)
+    }
+
+    override fun blockedPageError(document: org.jsoup.nodes.Document): String? {
+        val location = document.location().lowercase(Locale.ROOT)
+        val title = document.title().lowercase(Locale.ROOT)
+        val text = document.body().text().lowercase(Locale.ROOT)
+        val isChallenge = location.contains("/splashui/challenge") ||
+            title.contains("pardon our interruption") ||
+            text.contains("pardon our interruption") ||
+            text.contains("verify yourself to continue") ||
+            text.contains("security measure")
+
+        return if (isChallenge) {
+            "eBay blocked this request with a browser verification challenge"
+        } else {
+            null
+        }
+    }
+
     override fun retryPolicy(): RetryPolicy = RetryPolicy(
-        maxAttempts = 2,
+        maxAttempts = 3,
         baseDelayMs = 1000L,
         maxRandomDelayMs = 500L,
         retryAllExceptions = true
@@ -144,5 +141,9 @@ class EbayRequestStrategy : StoreRequestStrategy {
             lowerHost == "ebay.es" || lowerHost.endsWith(".ebay.es") -> "ebay.es"
             else -> lowerHost
         }
+    }
+
+    private companion object {
+        const val SESSION_COOKIE_PREFIX = "ebay_"
     }
 }

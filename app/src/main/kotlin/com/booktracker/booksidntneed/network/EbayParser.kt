@@ -89,7 +89,7 @@ class EbayParser : BookParser {
         
         // Try meta tags as fallback
         val metaTitle = document.select("meta[property='og:title']").attr("content")
-        if (metaTitle.isNotBlank() && !metaTitle.contains("eBay", ignoreCase = true)) {
+        if (metaTitle.isNotBlank() && !metaTitle.contains("Pardon Our Interruption", ignoreCase = true)) {
             Log.d("BookTracker", "EbayParser: Found title in meta tag: '$metaTitle'")
             return cleanTitle(metaTitle)
         }
@@ -188,6 +188,8 @@ class EbayParser : BookParser {
         
         // eBay price selectors
         val priceSelectors = listOf(
+            "[data-testid='x-price-primary'] .ux-textspans",
+            ".x-price-primary .ux-textspans",
             ".notranslate", // Price is often in notranslate spans
             "[data-testid='price']",
             ".price",

@@ -44,6 +44,10 @@ class CookieSession {
         values.forEach { (key, value) -> cookies["$prefix$key"] = value }
     }
 
+    fun clear(prefix: String) {
+        cookies.keys.removeAll { it.startsWith(prefix) }
+    }
+
     fun matching(prefix: String, stripPrefix: Boolean = false): Map<String, String> {
         return cookies
             .filter { it.key.startsWith(prefix) }
@@ -63,6 +67,8 @@ interface StoreRequestStrategy {
     suspend fun establishSession(session: CookieSession) = Unit
 
     fun configureRequest(connection: Connection, attempt: Int, session: CookieSession)
+
+    fun updateSession(responseCookies: Map<String, String>, session: CookieSession) = Unit
 
     fun retryPolicy(): RetryPolicy = RetryPolicy()
 
