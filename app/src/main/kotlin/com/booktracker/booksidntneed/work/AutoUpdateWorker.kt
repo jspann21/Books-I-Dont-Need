@@ -91,10 +91,11 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             val changeEntries = Collections.synchronizedList(mutableListOf<PriceChangeEntry>())
             val requestLimiter = ResponsiblePriceUpdateLimiter()
 
-            // Set initial foreground info with progress
             val initialProgressText = "Starting price updates... (0 of $totalStores)"
             if (inputData.getBoolean(KEY_ALLOW_FOREGROUND, false)) {
                 setForegroundIfAllowed(createForegroundInfo(initialProgressText, totalProgress = totalStores))
+            } else {
+                showProgressNotification(initialProgressText, 0, totalStores)
             }
             setProgressData(0, totalStores, initialProgressText)
 
@@ -229,23 +230,30 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             return
         }
 
-        if (canPostNotifications()) {
-            try {
-                notificationManager.notify(
-                    AutoUpdateNotifier.NOTIF_ID_FOREGROUND,
-                    buildProgressNotification(progressText, storesProcessed, totalStores)
-                )
-            } catch (e: SecurityException) {
-                Log.e(TAG, "SecurityException when updating notification: ${e.message}")
-                ErrorReporter.recordException(
-                    e,
-                    "Unable to update background progress notification",
-                    mapOf("source" to "auto_update_notification")
-                )
+        showProgressNotification(progressText, storesProcessed, totalStores)
+    }
+
+    private fun showProgressNotification(progressText: String, currentProgress: Int, totalProgress: Int) {
+        if (!canPostNotifications()) {
+            if (!notificationPermissionLogged) {
+                Log.d(TAG, "Skipping progress notification update; POST_NOTIFICATIONS permission not granted.")
+                notificationPermissionLogged = true
             }
-        } else if (!notificationPermissionLogged) {
-            Log.d(TAG, "Skipping progress notification update; POST_NOTIFICATIONS permission not granted.")
-            notificationPermissionLogged = true
+            return
+        }
+
+        try {
+            notificationManager.notify(
+                AutoUpdateNotifier.NOTIF_ID_FOREGROUND,
+                buildProgressNotification(progressText, currentProgress, totalProgress)
+            )
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException when updating notification: ${e.message}")
+            ErrorReporter.recordException(
+                e,
+                "Unable to update background progress notification",
+                mapOf("source" to "auto_update_notification")
+            )
         }
     }
 

@@ -60,7 +60,6 @@ object AutoUpdateScheduler {
         if (enqueueImmediate) {
             Log.d("AutoUpdateScheduler", "Enqueuing one-time update in ${initialDelayMs}ms for today's run")
             val oneTime = OneTimeWorkRequestBuilder<AutoUpdateWorker>()
-                .setInputData(workDataOf(AutoUpdateWorker.KEY_ALLOW_FOREGROUND to true))
                 .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
                 .setConstraints(constraints)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_BACKOFF_MINUTES, TimeUnit.MINUTES)
@@ -85,7 +84,6 @@ object AutoUpdateScheduler {
             PERIODIC_FLEX_MINUTES,
             TimeUnit.MINUTES
         )
-            .setInputData(workDataOf(AutoUpdateWorker.KEY_ALLOW_FOREGROUND to true))
             .setInitialDelay(periodicInitialDelayMs, TimeUnit.MILLISECONDS)
             .setConstraints(constraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_BACKOFF_MINUTES, TimeUnit.MINUTES)
