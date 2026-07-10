@@ -42,9 +42,12 @@ class CategoryOptionsDialogFragment : DialogFragment(), EditCategoryDialogFragme
 
         editCategoryCard.setOnClickListener {
             // Show the edit category dialog
-            val editDialogFragment = EditCategoryDialogFragment.newInstance(category)
-            editDialogFragment.show(parentFragmentManager, "edit_category_dialog")
+            val fm = parentFragmentManager
             dismiss()
+            it.post {
+                val editDialogFragment = EditCategoryDialogFragment.newInstance(category)
+                editDialogFragment.show(fm, "edit_category_dialog")
+            }
         }
         deleteCategoryCard.setOnClickListener {
             viewModel.requestCategoryDeletion(category)

@@ -61,17 +61,20 @@ class BookOptionsDialogFragment : DialogFragment() {
             dismiss()
         }
         view.findViewById<MaterialCardView>(R.id.changeCategoryCard).setOnClickListener {
-            val dialogFragment = CategorySelectionDialogFragment.newInstance(
-                title = "Change Category",
-                bookTitle = bookWithStores.book.title,
-                currentCategoryName = bookWithStores.book.category,
-                showAllOption = false
-            )
-            dialogFragment.setOnCategorySelectedListener { category ->
-                viewModel.updateBookCategory(bookWithStores.book.id, category.name)
-            }
-            dialogFragment.show(parentFragmentManager, "category_selection_dialog")
+            val fm = parentFragmentManager
             dismiss()
+            it.post {
+                val dialogFragment = CategorySelectionDialogFragment.newInstance(
+                    title = "Change Category",
+                    bookTitle = bookWithStores.book.title,
+                    currentCategoryName = bookWithStores.book.category,
+                    showAllOption = false
+                )
+                dialogFragment.setOnCategorySelectedListener { category ->
+                    viewModel.updateBookCategory(bookWithStores.book.id, category.name)
+                }
+                dialogFragment.show(fm, "category_selection_dialog")
+            }
         }
         view.findViewById<MaterialCardView>(R.id.updatePricesCard).setOnClickListener {
             viewModel.requestPriceUpdate(bookWithStores)
