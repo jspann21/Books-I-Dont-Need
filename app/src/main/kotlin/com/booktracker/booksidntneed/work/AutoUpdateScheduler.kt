@@ -60,6 +60,7 @@ object AutoUpdateScheduler {
         if (enqueueImmediate) {
             Log.d("AutoUpdateScheduler", "Enqueuing one-time update in ${initialDelayMs}ms for today's run")
             val oneTime = OneTimeWorkRequestBuilder<AutoUpdateWorker>()
+                .setInputData(workDataOf(AutoUpdateWorker.KEY_ALLOW_FOREGROUND to true))
                 .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
                 .setConstraints(constraints)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_BACKOFF_MINUTES, TimeUnit.MINUTES)
@@ -69,7 +70,10 @@ object AutoUpdateScheduler {
                 ExistingWorkPolicy.REPLACE,
                 oneTime
             )
-        } else {
+        } else if (policy == ExistingPeriodicWorkPolicy.REPLACE) {
+            // Only an explicit schedule replacement should remove a pending same-day run.
+            // scheduleDaily(KEEP) is also called during app startup; cancelling here used to
+            // erase a run that WorkManager had delayed slightly past its requested time.
             wm.cancelUniqueWork(UNIQUE_ONE_TIME_NAME)
         }
 
@@ -81,6 +85,7 @@ object AutoUpdateScheduler {
             PERIODIC_FLEX_MINUTES,
             TimeUnit.MINUTES
         )
+            .setInputData(workDataOf(AutoUpdateWorker.KEY_ALLOW_FOREGROUND to true))
             .setInitialDelay(periodicInitialDelayMs, TimeUnit.MILLISECONDS)
             .setConstraints(constraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_BACKOFF_MINUTES, TimeUnit.MINUTES)
