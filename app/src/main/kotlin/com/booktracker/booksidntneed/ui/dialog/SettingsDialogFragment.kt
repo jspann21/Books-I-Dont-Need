@@ -107,22 +107,24 @@ class SettingsDialogFragment : DialogFragment() {
             autoUpdateSwitch.isChecked = enabled
             timeText.text = formatMinutes(minutes)
             updatePriceAndTimeCardState(enabled, timeCard, timeText)
-        }
 
-        autoUpdateSwitch.setOnCheckedChangeListener { _, isChecked ->
-            viewLifecycleOwner.lifecycleScope.launch {
-                AutoUpdatePreferences.setEnabled(requireContext(), isChecked)
-                updatePriceAndTimeCardState(isChecked, timeCard, timeText)
-                val minutes = AutoUpdatePreferences.timeMinutes(requireContext()).first()
-                if (isChecked) {
-                    requestNotificationPermissionIfNeeded()
-                    AutoUpdateScheduler.scheduleDaily(
-                        requireContext(),
-                        minutes,
-                        androidx.work.ExistingPeriodicWorkPolicy.REPLACE
-                    )
-                } else {
-                    AutoUpdateScheduler.cancel(requireContext())
+            // Register AFTER setting the initial value so that the programmatic
+            // setChecked above does not trigger a redundant scheduleDaily(REPLACE).
+            autoUpdateSwitch.setOnCheckedChangeListener { _, isChecked ->
+                viewLifecycleOwner.lifecycleScope.launch {
+                    AutoUpdatePreferences.setEnabled(requireContext(), isChecked)
+                    updatePriceAndTimeCardState(isChecked, timeCard, timeText)
+                    val mins = AutoUpdatePreferences.timeMinutes(requireContext()).first()
+                    if (isChecked) {
+                        requestNotificationPermissionIfNeeded()
+                        AutoUpdateScheduler.scheduleDaily(
+                            requireContext(),
+                            mins,
+                            androidx.work.ExistingPeriodicWorkPolicy.REPLACE
+                        )
+                    } else {
+                        AutoUpdateScheduler.cancel(requireContext())
+                    }
                 }
             }
         }
