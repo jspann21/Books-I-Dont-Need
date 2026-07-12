@@ -1043,24 +1043,22 @@ class MainActivity : AppCompatActivity(),
     }
     
     private fun createTempCsvFile(booksWithStores: List<BookWithStores>): File {
-        // Create file in the app's private files directory for better sharing compatibility
-        val tempFile = File(filesDir, "books_export_${System.currentTimeMillis()}.csv")
-        
-        try {
-            FileWriter(tempFile).use { writer ->
-                dataExportService.exportToCSV(booksWithStores, writer)
+        // Remove exports stranded by a killed process, including files created by older versions.
+        sequenceOf(filesDir, cacheDir).forEach { directory ->
+            directory.listFiles { file ->
+                file.isFile && file.name.startsWith(EXPORT_FILE_PREFIX) && file.extension == "csv"
+            }?.forEach { staleFile ->
+                if (!staleFile.delete()) {
+                    Log.w("BookTracker", "MainActivity: Could not delete stale export: ${staleFile.absolutePath}")
+                }
             }
-            Log.d("BookTracker", "MainActivity: Temporary file created successfully: ${tempFile.absolutePath} (${tempFile.length()} bytes)")
-        } catch (e: Exception) {
-            Log.e("BookTracker", "MainActivity: Error creating temp file", e)
-            // Fallback to cache directory if files directory fails
-            val fallbackFile = File(cacheDir, "books_export_${System.currentTimeMillis()}.csv")
-            FileWriter(fallbackFile).use { writer ->
-                dataExportService.exportToCSV(booksWithStores, writer)
-            }
-            Log.d("BookTracker", "MainActivity: Fallback file created in cache: ${fallbackFile.absolutePath}")
-            return fallbackFile
         }
+
+        val tempFile = File(cacheDir, "$EXPORT_FILE_PREFIX${System.currentTimeMillis()}.csv")
+        FileWriter(tempFile).use { writer ->
+            dataExportService.exportToCSV(booksWithStores, writer)
+        }
+        Log.d("BookTracker", "MainActivity: Temporary file created successfully: ${tempFile.absolutePath} (${tempFile.length()} bytes)")
         
         return tempFile
     }
@@ -1294,6 +1292,7 @@ class MainActivity : AppCompatActivity(),
     }
 
     companion object {
+        private const val EXPORT_FILE_PREFIX = "books_export_"
         private const val RECENT_PRICE_CHANGES_DIALOG_TAG = "recent_price_changes_dialog"
     }
 

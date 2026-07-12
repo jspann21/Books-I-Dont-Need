@@ -1624,6 +1624,9 @@ class MainViewModel(private val repository: BookRepository, private val app: App
      * Set the last exported data to survive configuration changes
      */
     fun setLastExportedData(tempFile: java.io.File) {
+        _lastExportedData.value?.tempFile
+            ?.takeIf { it != tempFile }
+            ?.delete()
         _lastExportedData.value = ExportedData(tempFile)
     }
     
@@ -1634,4 +1637,9 @@ class MainViewModel(private val repository: BookRepository, private val app: App
         _lastExportedData.value?.tempFile?.delete()
         _lastExportedData.value = null
     }
-} 
+
+    override fun onCleared() {
+        clearLastExportedData()
+        super.onCleared()
+    }
+}
