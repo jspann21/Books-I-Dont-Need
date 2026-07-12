@@ -44,7 +44,15 @@ class BooksAdapter(
         private const val VIEW_TYPE_MINIMAL = 1
         private val DEFAULT_CATEGORY_COLOR = "#64748B".toColorInt()
         private const val DESKTOP_FIREFOX_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0"
+        private val BOOKS_A_MILLION_HEADERS = LazyHeaders.Builder()
+            .addHeader("User-Agent", DESKTOP_FIREFOX_USER_AGENT)
+            .addHeader("Accept", "image/avif,image/webp,*/*")
+            .addHeader("Accept-Language", "en-US,en;q=0.5")
+            .addHeader("Referer", "https://www.booksamillion.com/")
+            .build()
     }
+
+    private val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     
     // Map of category names to their colors
     private var categoryColors: Map<String, String> = emptyMap()
@@ -241,12 +249,7 @@ class BooksAdapter(
 
         return GlideUrl(
             coverImageUrl,
-            LazyHeaders.Builder()
-                .addHeader("User-Agent", DESKTOP_FIREFOX_USER_AGENT)
-                .addHeader("Accept", "image/avif,image/webp,*/*")
-                .addHeader("Accept-Language", "en-US,en;q=0.5")
-                .addHeader("Referer", "https://www.booksamillion.com/")
-                .build()
+            BOOKS_A_MILLION_HEADERS
         )
     }
 
@@ -323,7 +326,6 @@ class BooksAdapter(
             setupStoreInfo(bookWithStores)
 
             // Date added
-            val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
             binding.dateAddedTextView.text = binding.root.context.getString(
                 R.string.book_date_added_label,
                 dateFormat.format(book.dateAdded)
@@ -543,7 +545,6 @@ class BooksAdapter(
             setupExpandedStoreInfo(bookWithStores)
             
             // Date added
-            val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
             binding.dateAddedTextView.text = binding.root.context.getString(
                 R.string.book_date_added_label,
                 dateFormat.format(book.dateAdded)
