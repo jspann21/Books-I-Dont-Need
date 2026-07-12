@@ -104,11 +104,17 @@ class BooksAdapter(
             is BookViewHolder -> {
                 // Clear nested adapter to break view references
                 holder.itemView.findViewById<RecyclerView?>(R.id.storesRecyclerView)?.adapter = null
-                // Clear image to release resources sooner
-                holder.itemView.findViewById<ImageView?>(R.id.bookCoverImageView)?.setImageDrawable(null)
+                holder.itemView.findViewById<ImageView?>(R.id.bookCoverImageView)?.let { imageView ->
+                    Glide.with(imageView).clear(imageView)
+                }
             }
             is MinimalBookViewHolder -> {
-                holder.itemView.findViewById<ImageView?>(R.id.bookCoverImageView)?.setImageDrawable(null)
+                holder.itemView.findViewById<ImageView?>(R.id.bookCoverImageView)?.let { imageView ->
+                    Glide.with(imageView).clear(imageView)
+                }
+                holder.itemView.findViewById<ImageView?>(R.id.expandedBookCoverImageView)?.let { imageView ->
+                    Glide.with(imageView).clear(imageView)
+                }
             }
         }
     }
