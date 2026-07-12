@@ -42,6 +42,7 @@ class BooksAdapter(
     companion object {
         private const val VIEW_TYPE_FULL = 0
         private const val VIEW_TYPE_MINIMAL = 1
+        private val CATEGORY_COLORS_PAYLOAD = Any()
         private val DEFAULT_CATEGORY_COLOR = "#64748B".toColorInt()
         private const val DESKTOP_FIREFOX_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0"
         private val BOOKS_A_MILLION_HEADERS = LazyHeaders.Builder()
@@ -60,9 +61,12 @@ class BooksAdapter(
     // Method to update category colors
     fun updateCategoryColors(categories: List<Category>) {
         // Normalize category names to lowercase and trimmed for matching
-        categoryColors = categories.associate { it.name.trim().lowercase() to (it.color ?: "#64748B") }
+        val updatedColors = categories.associate { it.name.trim().lowercase() to (it.color ?: "#64748B") }
+        if (categoryColors == updatedColors) return
+
+        categoryColors = updatedColors
         if (itemCount > 0) {
-            notifyItemRangeChanged(0, itemCount)
+            notifyItemRangeChanged(0, itemCount, CATEGORY_COLORS_PAYLOAD)
         }
     }
     
@@ -104,6 +108,22 @@ class BooksAdapter(
             is BookViewHolder -> holder.bind(getItem(position))
             is MinimalBookViewHolder -> holder.bind(getItem(position))
         }
+    }
+
+    override fun onBindViewHolder(
+        holder: RecyclerView.ViewHolder,
+        position: Int,
+        payloads: MutableList<Any>
+    ) {
+        if (payloads.isNotEmpty() && payloads.all { it === CATEGORY_COLORS_PAYLOAD }) {
+            val categoryName = getItem(position).book.category
+            when (holder) {
+                is BookViewHolder -> holder.updateCategoryColor(categoryName)
+                is MinimalBookViewHolder -> holder.updateCategoryColor(categoryName)
+            }
+            return
+        }
+        super.onBindViewHolder(holder, position, payloads)
     }
 
     override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
@@ -298,6 +318,10 @@ class BooksAdapter(
         private var storesAdapter: StoresAdapter? = null
         private var isStoresExpanded = false
 
+        fun updateCategoryColor(categoryName: String) {
+            applyCategoryColor(binding.categoryChip, categoryName)
+        }
+
         fun bind(bookWithStores: BookWithStores) {
             val book = bookWithStores.book
 
@@ -436,6 +460,11 @@ class BooksAdapter(
         
         private var storesAdapter: StoresAdapter? = null
         private var isExpanded = false
+
+        fun updateCategoryColor(categoryName: String) {
+            applyCategoryColor(binding.categoryChip, categoryName)
+            applyCategoryColor(binding.expandedCategoryChip, categoryName)
+        }
 
         fun bind(bookWithStores: BookWithStores) {
             val book = bookWithStores.book
