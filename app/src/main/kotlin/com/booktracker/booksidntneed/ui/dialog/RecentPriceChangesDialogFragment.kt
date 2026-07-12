@@ -48,10 +48,26 @@ class RecentPriceChangesDialogFragment : DialogFragment() {
             try {
                 val obj = JSONObject(json)
                 val arr = obj.optJSONArray("changes")
-                if (arr != null && arr.length() > 0) {
-                    val totalChecked = obj.optInt("totalChecked", 0)
-                    val changed = obj.optInt("changed", arr.length())
+                val failures = obj.optJSONArray("failures")
+                val totalChecked = obj.optInt("totalChecked", 0)
+                val changed = obj.optInt("changed", arr?.length() ?: 0)
+                val failureCount = obj.optInt("failed", failures?.length() ?: 0)
+                val skippedCount = obj.optInt("skipped", 0)
+
+                if (failureCount > 0 || skippedCount > 0) {
+                    view.findViewById<TextView>(R.id.dialogTitle).setText(R.string.update_results_title)
+                    summaryView.text = getString(
+                        R.string.update_results_summary,
+                        totalChecked,
+                        changed,
+                        failureCount,
+                        skippedCount
+                    )
+                } else {
                     summaryView.text = getString(R.string.recent_price_changes_summary, totalChecked, changed)
+                }
+
+                if (arr != null && arr.length() > 0) {
                     for (i in 0 until arr.length()) {
                         val item = arr.getJSONObject(i)
                         val bookTitle = item.optString("bookTitle")
@@ -103,7 +119,41 @@ class RecentPriceChangesDialogFragment : DialogFragment() {
                         }
                         container.addView(row)
                     }
-                } else {
+                }
+
+                if (failures != null) {
+                    for (i in 0 until failures.length()) {
+                        val item = failures.getJSONObject(i)
+                        val row = layoutInflater.inflate(R.layout.item_price_change, container, false)
+                        val titleView = row.findViewById<TextView>(R.id.changeTitle)
+                        val storeView = row.findViewById<TextView>(R.id.changeStore)
+                        val messageView = row.findViewById<TextView>(R.id.changePrices)
+                        val chip = row.findViewById<Chip>(R.id.changeChip)
+
+                        titleView.text = item.optString("bookTitle")
+                        storeView.text = item.optString("storeName")
+                        messageView.text = item.optString("errorMessage")
+                        messageView.setTextColor(
+                            MaterialColors.getColor(
+                                requireContext(),
+                                androidx.appcompat.R.attr.colorError,
+                                ContextCompat.getColor(requireContext(), R.color.md_theme_light_tertiary)
+                            )
+                        )
+                        chip.setText(R.string.update_result_failed)
+                        chip.chipIcon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_error)
+                        setChipColors(
+                            chip,
+                            com.google.android.material.R.attr.colorErrorContainer,
+                            com.google.android.material.R.attr.colorOnErrorContainer,
+                            R.color.md_theme_light_errorContainer,
+                            R.color.md_theme_light_onErrorContainer
+                        )
+                        container.addView(row)
+                    }
+                }
+
+                if ((arr == null || arr.length() == 0) && (failures == null || failures.length() == 0)) {
                     summaryView.visibility = View.GONE
                     val tv = TextView(requireContext()).apply {
                         text = getString(R.string.summary_no_changes)

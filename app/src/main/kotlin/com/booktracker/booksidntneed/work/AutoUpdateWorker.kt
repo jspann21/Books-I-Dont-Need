@@ -19,6 +19,7 @@ import com.booktracker.booksidntneed.database.AutoUpdateStoreTarget
 import com.booktracker.booksidntneed.repository.BookRepository
 import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
 import com.booktracker.booksidntneed.utils.ErrorReporter
+import com.booktracker.booksidntneed.utils.FailedUpdateEntry
 import com.booktracker.booksidntneed.utils.PriceChangeEntry
 import com.booktracker.booksidntneed.utils.UpdateSummary
 import kotlinx.coroutines.async
@@ -90,6 +91,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             val failedUpdates = AtomicInteger(0)
             val skippedUpdates = AtomicInteger(0)
             val changeEntries = Collections.synchronizedList(mutableListOf<PriceChangeEntry>())
+            val failureEntries = Collections.synchronizedList(mutableListOf<FailedUpdateEntry>())
             val requestLimiter = ResponsiblePriceUpdateLimiter()
 
             val initialProgressText = "Starting price updates... (0 of $totalStores)"
@@ -137,6 +139,14 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                         }
                         is BookRepository.SingleStoreUpdateResult.Failed -> {
                             failedUpdates.incrementAndGet()
+                            failureEntries.add(
+                                FailedUpdateEntry(
+                                    bookId = store.bookId,
+                                    bookTitle = bookTitle,
+                                    storeName = store.storeName,
+                                    errorMessage = updateResult.errorMessage
+                                )
+                            )
                             Log.w(
                                 TAG,
                                 "Price update failed for '$bookTitle' (${store.storeName}): ${updateResult.errorMessage}"
@@ -152,6 +162,14 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                     }
                 } catch (e: Exception) {
                     failedUpdates.incrementAndGet()
+                    failureEntries.add(
+                        FailedUpdateEntry(
+                            bookId = store.bookId,
+                            bookTitle = bookTitle,
+                            storeName = store.storeName,
+                            errorMessage = e.message ?: "Unknown error occurred"
+                        )
+                    )
                     Log.e(TAG, "Failed to update store for book '$bookTitle' (${store.storeName}): ${e.message}")
                     ErrorReporter.recordException(
                         e,
@@ -191,6 +209,7 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 failed = failedUpdates.get(),
                 skipped = skippedUpdates.get(),
                 changes = changeEntries,
+                failures = failureEntries,
                 completedAt = System.currentTimeMillis()
             )
 
@@ -243,6 +262,16 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             arr.put(item)
         }
         obj.put("changes", arr)
+        val failures = JSONArray()
+        summary.failures.forEach { failure ->
+            val item = JSONObject()
+            item.put("bookId", failure.bookId)
+            item.put("bookTitle", failure.bookTitle)
+            item.put("storeName", failure.storeName)
+            item.put("errorMessage", failure.errorMessage)
+            failures.put(item)
+        }
+        obj.put("failures", failures)
         return obj.toString()
     }
 

@@ -54,6 +54,13 @@ data class PriceChangeEntry(
     val timestamp: Long
 )
 
+data class FailedUpdateEntry(
+    val bookId: Long,
+    val bookTitle: String,
+    val storeName: String,
+    val errorMessage: String
+)
+
 data class UpdateSummary(
     val totalChecked: Int,
     val changed: Int,
@@ -62,6 +69,6 @@ data class UpdateSummary(
     val failed: Int,
     val skipped: Int,
     val changes: List<PriceChangeEntry>,
+    val failures: List<FailedUpdateEntry>,
     val completedAt: Long
 )
-

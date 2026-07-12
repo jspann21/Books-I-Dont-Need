@@ -162,6 +162,9 @@
     <string name="update_increases_suffix"> and %1$d increase(s)</string>
     <string name="recent_price_changes_title">Recent price changes</string>
     <string name="recent_price_changes_summary">Checked %1$d stores, %2$d changed</string>
+    <string name="update_results_title">Update results</string>
+    <string name="update_results_summary">Checked %1$d stores, %2$d changed, %3$d failed, %4$d skipped</string>
+    <string name="update_result_failed">Failed</string>
     <string name="price_change_price_range">%1$s -> %2$s</string>
     <string name="price_change_new_price">Now %1$s</string>
     <string name="price_change_delta_up">+%1$s</string>
