@@ -22,6 +22,7 @@ import com.booktracker.booksidntneed.repository.BookRepository
 import com.booktracker.booksidntneed.repository.CategoryManager
 import com.booktracker.booksidntneed.utils.ErrorReporter
 import com.booktracker.booksidntneed.work.ResponsiblePriceUpdateLimiter
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -376,7 +377,20 @@ class MainViewModel(private val repository: BookRepository, private val app: App
         var currentSource: LiveData<List<BookWithStores>>? = null
         var latestBooks: List<BookWithStores> = emptyList()
         var filterJob: Job? = null
+        var indexedBooks: List<BookWithStores>? = null
+        var searchIndexJob: Deferred<List<SearchableBook>>? = null
         val filterGeneration = AtomicInteger(0)
+
+        fun getSearchIndex(books: List<BookWithStores>): Deferred<List<SearchableBook>> {
+            if (indexedBooks !== books || searchIndexJob == null) {
+                searchIndexJob?.cancel()
+                indexedBooks = books
+                searchIndexJob = viewModelScope.async(Dispatchers.Default) {
+                    books.map { it.toSearchableBook() }
+                }
+            }
+            return checkNotNull(searchIndexJob)
+        }
 
         fun applySearch() {
             val query = searchQuerySource.value.orEmpty()
@@ -389,9 +403,9 @@ class MainViewModel(private val repository: BookRepository, private val app: App
                 return
             }
 
+            val searchIndex = getSearchIndex(booksSnapshot)
             filterJob = viewModelScope.launch(Dispatchers.Default) {
-                val searchableBooks = booksSnapshot.map { it.toSearchableBook() }
-                val filteredBooks = searchableBooks.filterBySearchQuery(query)
+                val filteredBooks = searchIndex.await().filterBySearchQuery(query)
                 if (filterGeneration.get() == generation) {
                     postValue(filteredBooks)
                 }
