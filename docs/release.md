@@ -2,11 +2,11 @@
 
 GitHub builds the release APK with `.github/workflows/android-release.yml`.
 
-The workflow runs when a `v*` tag is pushed, or manually from the Actions tab. For version `1.0.4`, push:
+The workflow runs when a `v*` tag is pushed, or manually from the Actions tab. For version `1.0.5`, push:
 
 ```sh
-git tag v1.0.4
-git push origin v1.0.4
+git tag v1.0.5
+git push origin v1.0.5
 ```
 
 To publish an installable signed APK, add these repository secrets in GitHub:
