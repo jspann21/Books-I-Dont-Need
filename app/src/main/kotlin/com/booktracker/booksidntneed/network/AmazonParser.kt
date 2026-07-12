@@ -935,26 +935,25 @@ class AmazonParser : BookParser {
     private fun extractCoverImage(document: Document): String? {
         Log.d("BookTracker", "AmazonParser: Starting image extraction")
         
-        val imageSelectors = listOf(
-            // Primary Amazon image selectors (highest priority)
+        // These selectors identify Amazon's primary product image. If one of them
+        // produces a valid URL, prefer it over every image in the product gallery.
+        val primaryImageSelectors = listOf(
             "#landingImage",
             "#imgBlkFront",
             "#ebooksImgBlkFront",
-            
-            // Modern Amazon selectors
             "[data-a-image-name='main-image']",
-            ".a-dynamic-image[data-a-image-name]",
-            ".a-dynamic-image",
-            
-            // Book-specific selectors
             "[data-automation-id='hero-image'] img",
             "#imgTagWrapperId img",
             ".book-image img",
-            
-            // Container-based selectors
             "#main-image-container img",
-            "#main-image img",
-            
+            "#main-image img"
+        )
+
+        val fallbackImageSelectors = listOf(
+            // These can include alternate gallery images (back cover, spine, etc.).
+            ".a-dynamic-image[data-a-image-name]",
+            ".a-dynamic-image",
+
             // Generic Amazon image selectors
             "img[data-a-image-name='landingImage']",
             "img[alt*='book']",
@@ -966,6 +965,8 @@ class AmazonParser : BookParser {
             "img[src*='images-amazon']",
             "img[src*='ssl-images-amazon']"
         )
+
+        val imageSelectors = primaryImageSelectors + fallbackImageSelectors
         
         var bestImageUrl: String? = null
         var bestImageScore = -1
@@ -973,6 +974,9 @@ class AmazonParser : BookParser {
         for (selector in imageSelectors) {
             val elements = document.select(selector)
             Log.d("BookTracker", "AmazonParser: Trying selector '$selector', found ${elements.size} elements")
+
+            var selectorBestImageUrl: String? = null
+            var selectorBestImageScore = -1
             
             for (element in elements) {
                 val imageUrl = element.attr("src")
@@ -1000,16 +1004,28 @@ class AmazonParser : BookParser {
                             bestImageUrl = url
                             Log.d("BookTracker", "AmazonParser: New best image: $url (score: $score)")
                         }
-                        
-                        // If we found a really good image, return it immediately
-                        if (score >= 150) {
-                            Log.d("BookTracker", "AmazonParser: Found excellent image, returning immediately: $url")
-                            return url
+
+                        if (score > selectorBestImageScore) {
+                            selectorBestImageScore = score
+                            selectorBestImageUrl = url
                         }
                     } else {
                         Log.d("BookTracker", "AmazonParser: Rejected invalid image URL: $url")
                     }
                 }
+            }
+
+            // Selector order expresses structural confidence. In particular,
+            // #landingImage is the displayed front cover; continuing into the
+            // broad dynamic-image selectors can replace it with a higher-res
+            // back-cover or spine image from Amazon's gallery.
+            if (selector in primaryImageSelectors && selectorBestImageUrl != null) {
+                Log.d(
+                    "BookTracker",
+                    "AmazonParser: Returning primary product image from '$selector': " +
+                        "$selectorBestImageUrl (score: $selectorBestImageScore)"
+                )
+                return selectorBestImageUrl
             }
         }
         
