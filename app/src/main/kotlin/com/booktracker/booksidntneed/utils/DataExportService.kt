@@ -122,6 +122,7 @@ class DataExportService(private val context: Context) {
             val books = mutableMapOf<String, Book>() // Key: ISBN or title+author
             val storesByBookKey = mutableMapOf<String, MutableList<BookStore>>() // Key: book key, Value: list of stores
             val categories = mutableSetOf<Category>()
+            val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.US)
             
             var lineNumber = 0
             var headerSkipped = false
@@ -146,8 +147,8 @@ class DataExportService(private val context: Context) {
                         val fields = parseCsvLine(trimmedLine)
                         
                         if (fields.size >= 12) {
-                            val book = parseBookFromCsv(fields)
-                            val store = if (fields.size >= 20) parseStoreFromCsv(fields) else null
+                            val book = parseBookFromCsv(fields, dateFormat)
+                            val store = if (fields.size >= 20) parseStoreFromCsv(fields, dateFormat) else null
                             
                             Log.d("BookTracker", "DataExportService: Parsed book: ${book.title} by ${book.author}")
                             if (store != null) {
@@ -260,10 +261,8 @@ class DataExportService(private val context: Context) {
         return fields
     }
     
-    private fun parseBookFromCsv(fields: List<String>): Book {
+    private fun parseBookFromCsv(fields: List<String>, dateFormat: SimpleDateFormat): Book {
         Log.d("BookTracker", "DataExportService: Parsing book from ${fields.size} fields")
-        
-        val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.US)
         
         val title = fields.getOrNull(1)?.trim() ?: ""
         val author = fields.getOrNull(2)?.trim() ?: ""
@@ -298,10 +297,8 @@ class DataExportService(private val context: Context) {
         return book
     }
     
-    private fun parseStoreFromCsv(fields: List<String>): BookStore? {
+    private fun parseStoreFromCsv(fields: List<String>, dateFormat: SimpleDateFormat): BookStore? {
         Log.d("BookTracker", "DataExportService: Parsing store from ${fields.size} fields")
-        
-        val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.US)
         
         val storeName = fields.getOrNull(13)?.trim()
         val storeUrl = fields.getOrNull(14)?.trim()
