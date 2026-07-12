@@ -127,7 +127,9 @@ class MainActivity : AppCompatActivity(),
                 }
                 try {
                     contentResolver.openOutputStream(uri)?.use { output ->
-                        output.write(exportedData.csvData.toByteArray())
+                        exportedData.tempFile.inputStream().buffered().use { input ->
+                            input.copyTo(output)
+                        }
                     }
                     Toast.makeText(this, "Exported to device!", Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
@@ -880,7 +882,7 @@ class MainActivity : AppCompatActivity(),
                 
                 Log.d("BookTracker", "MainActivity: Temporary file created: ${tempFile.absolutePath}")
                 
-                viewModel.setLastExportedData(csvData, tempFile)
+                viewModel.setLastExportedData(tempFile)
                 showExportOptionsDialog()
             } catch (e: Exception) {
                 Log.e("BookTracker", "MainActivity: Export failed", e)

@@ -72,7 +72,7 @@ class MainViewModel(private val repository: BookRepository, private val app: App
 
     
     // Exported data state to survive configuration changes
-    data class ExportedData(val csvData: String, val tempFile: java.io.File)
+    data class ExportedData(val tempFile: java.io.File)
     private val _lastExportedData = MutableLiveData<ExportedData?>()
     val lastExportedData: LiveData<ExportedData?> = _lastExportedData
     
@@ -1623,8 +1623,8 @@ class MainViewModel(private val repository: BookRepository, private val app: App
     /**
      * Set the last exported data to survive configuration changes
      */
-    fun setLastExportedData(csvData: String, tempFile: java.io.File) {
-        _lastExportedData.value = ExportedData(csvData, tempFile)
+    fun setLastExportedData(tempFile: java.io.File) {
+        _lastExportedData.value = ExportedData(tempFile)
     }
     
     /**
