@@ -1313,19 +1313,14 @@ class MainViewModel(private val repository: BookRepository, private val app: App
 
             val importIndex = buildImportLookupIndex(books, categories)
 
-            Log.d("BookTracker", "ViewModel: Importing categories first")
-            // Import categories first
-            categories.forEach { category ->
-                if (importIndex.existingCategoryNames.add(category.name)) {
-                    repository.insertCategory(category)
-                    categoriesImported++
-                    Log.d("BookTracker", "ViewModel: Imported new category: "+category.name)
-                } else {
-                    Log.d("BookTracker", "ViewModel: Category already exists: "+category.name)
-                }
-            }
-
             repository.runInTransaction {
+                categories.forEach { category ->
+                    if (importIndex.existingCategoryNames.add(category.name)) {
+                        repository.insertCategory(category)
+                        categoriesImported++
+                    }
+                }
+
                 books.forEach { bookToImport ->
                     val bookKey = createBookKey(bookToImport)
                     val bookStores = storesByBookKey[bookKey] ?: emptyList()
