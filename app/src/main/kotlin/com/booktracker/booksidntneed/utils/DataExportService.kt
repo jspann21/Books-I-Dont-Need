@@ -36,21 +36,18 @@ class DataExportService(private val context: Context) {
         var totalRows = 0
         booksWithStores.forEach { bookWithStores ->
             val book = bookWithStores.book
-            Log.d("BookTracker", "DataExportService: Processing book: ${book.title} (ID: ${book.id}) with ${bookWithStores.stores.size} stores")
-            
+
             if (bookWithStores.stores.isEmpty()) {
                 // Book with no stores - add a single row
                 val bookRow = buildBookRow(book, null, dateFormat)
                 csvBuilder.append(bookRow).append("\n")
                 totalRows++
-                Log.d("BookTracker", "DataExportService: Added book row for ${book.title} (no stores)")
             } else {
                 // Book with stores - add a row for each store
                 bookWithStores.stores.forEach { store ->
                     val bookRow = buildBookRow(book, store, dateFormat)
                     csvBuilder.append(bookRow).append("\n")
                     totalRows++
-                    Log.d("BookTracker", "DataExportService: Added book row for ${book.title} with store: ${store.storeName}")
                 }
             }
         }
@@ -83,7 +80,6 @@ class DataExportService(private val context: Context) {
             store?.lastUpdated?.let { dateFormat.format(it) } ?: ""
         ).joinToString(CSV_SEPARATOR)
         
-        Log.v("BookTracker", "DataExportService: Built CSV row: ${row.take(100)}...")
         return row
     }
     
@@ -137,46 +133,31 @@ class DataExportService(private val context: Context) {
                     
                     if (!trimmedLine.isNullOrEmpty()) {
                         if (!headerSkipped) {
-                            Log.d("BookTracker", "DataExportService: Skipping header line: ${trimmedLine.take(50)}...")
                             headerSkipped = true
                             continue
                         }
-                        
-                        Log.v("BookTracker", "DataExportService: Processing line $lineNumber: ${trimmedLine.take(50)}...")
-                        
+
                         val fields = parseCsvLine(trimmedLine)
                         
                         if (fields.size >= 12) {
                             val book = parseBookFromCsv(fields, dateFormat)
                             val store = if (fields.size >= 20) parseStoreFromCsv(fields, dateFormat) else null
                             
-                            Log.d("BookTracker", "DataExportService: Parsed book: ${book.title} by ${book.author}")
-                            if (store != null) {
-                                Log.d("BookTracker", "DataExportService: Parsed store: ${store.storeName} for ${store.price}")
-                            }
-                            
                             // Create unique key for book identification
                             val bookKey = createBookKey(book)
-                            Log.d("BookTracker", "DataExportService: Book key: $bookKey")
-                            
+
                             if (bookKey !in books) {
                                 books[bookKey] = book
                                 categories.add(Category(book.category))
                                 storesByBookKey[bookKey] = mutableListOf()
-                                Log.d("BookTracker", "DataExportService: Added new book: ${book.title}")
-                            } else {
-                                Log.d("BookTracker", "DataExportService: Book already exists, will merge: ${book.title}")
                             }
-                            
+
                             if (store != null) {
                                 storesByBookKey[bookKey]?.add(store)
-                                Log.d("BookTracker", "DataExportService: Added store: ${store.storeName}")
                             }
                         } else {
                             Log.w("BookTracker", "DataExportService: Line $lineNumber has insufficient fields (${fields.size}), skipping")
                         }
-                    } else {
-                        Log.v("BookTracker", "DataExportService: Skipping blank line $lineNumber")
                     }
                 }
             }
@@ -213,8 +194,6 @@ class DataExportService(private val context: Context) {
     }
     
     private fun parseCsvLine(line: String): List<String> {
-        Log.v("BookTracker", "DataExportService: Parsing CSV line: ${line.take(100)}...")
-        
         val fields = mutableListOf<String>()
         val currentField = StringBuilder()
         var insideQuotes = false
@@ -228,21 +207,17 @@ class DataExportService(private val context: Context) {
                             // Escaped quote
                             currentField.append('"')
                             i++ // Skip next quote
-                            Log.v("BookTracker", "DataExportService: Found escaped quote at position $i")
                         } else {
                             // End of quoted field
                             insideQuotes = false
-                            Log.v("BookTracker", "DataExportService: Exiting quoted field at position $i")
                         }
                     } else {
                         insideQuotes = true
-                        Log.v("BookTracker", "DataExportService: Entering quoted field at position $i")
                     }
                 }
                 ',' -> {
                     if (!insideQuotes) {
                         fields.add(currentField.toString())
-                        Log.v("BookTracker", "DataExportService: Added field: ${currentField.toString().take(20)}...")
                         currentField.clear()
                     } else {
                         currentField.append(char)
@@ -255,23 +230,16 @@ class DataExportService(private val context: Context) {
         
         // Add the last field
         fields.add(currentField.toString())
-        Log.v("BookTracker", "DataExportService: Added final field: ${currentField.toString().take(20)}...")
-        
-        Log.d("BookTracker", "DataExportService: Parsed ${fields.size} fields from CSV line")
         return fields
     }
     
     private fun parseBookFromCsv(fields: List<String>, dateFormat: SimpleDateFormat): Book {
-        Log.d("BookTracker", "DataExportService: Parsing book from ${fields.size} fields")
         
         val title = fields.getOrNull(1)?.trim() ?: ""
         val author = fields.getOrNull(2)?.trim() ?: ""
         val isbn10 = fields.getOrNull(3)?.trim().takeIf { it?.isNotEmpty() == true }
         val isbn13 = fields.getOrNull(4)?.trim().takeIf { it?.isNotEmpty() == true }
         val category = fields.getOrNull(5)?.trim() ?: "Uncategorized"
-        
-        Log.d("BookTracker", "DataExportService: Book details - Title: '$title', Author: '$author', Category: '$category'")
-        Log.d("BookTracker", "DataExportService: Book ISBNs - ISBN-10: '$isbn10', ISBN-13: '$isbn13'")
         
         val book = Book(
             id = 0, // Will be set by database
@@ -293,12 +261,10 @@ class DataExportService(private val context: Context) {
             }
         )
         
-        Log.d("BookTracker", "DataExportService: Successfully parsed book: ${book.title}")
         return book
     }
     
     private fun parseStoreFromCsv(fields: List<String>, dateFormat: SimpleDateFormat): BookStore? {
-        Log.d("BookTracker", "DataExportService: Parsing store from ${fields.size} fields")
         
         val storeName = fields.getOrNull(13)?.trim()
         val storeUrl = fields.getOrNull(14)?.trim()
@@ -310,8 +276,6 @@ class DataExportService(private val context: Context) {
         
         val price = fields.getOrNull(15)?.trim()?.toDoubleOrNull()
         val currency = fields.getOrNull(16)?.trim() ?: "USD"
-        
-        Log.d("BookTracker", "DataExportService: Store details - Name: '$storeName', URL: '$storeUrl', Price: $price $currency")
         
         val store = BookStore(
             id = 0, // Will be set by database
@@ -335,7 +299,6 @@ class DataExportService(private val context: Context) {
             }
         )
         
-        Log.d("BookTracker", "DataExportService: Successfully parsed store: ${store.storeName}")
         return store
     }
     
@@ -347,7 +310,6 @@ class DataExportService(private val context: Context) {
             else -> "title:${book.title.lowercase(Locale.ROOT)}:author:${book.author.lowercase(Locale.ROOT)}"
         }
         
-        Log.d("BookTracker", "DataExportService: Created book key: $key for book: ${book.title}")
         return key
     }
     
