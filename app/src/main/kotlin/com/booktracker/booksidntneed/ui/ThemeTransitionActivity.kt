@@ -7,6 +7,8 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
@@ -22,6 +24,7 @@ import com.booktracker.booksidntneed.utils.AppThemeMode
 import com.booktracker.booksidntneed.utils.ThemePreferences
 
 class ThemeTransitionActivity : Activity() {
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var themeApplied = false
     private var oldFrameView: ImageView? = null
     private var restoredFrameView: ImageView? = null
@@ -77,10 +80,15 @@ class ThemeTransitionActivity : Activity() {
     }
 
     override fun onDestroy() {
+        mainHandler.removeCallbacksAndMessages(null)
+        oldFrameView?.animate()?.cancel()
         oldFrameView?.setImageDrawable(null)
         restoredFrameView?.setImageDrawable(null)
         oldFrameView = null
         restoredFrameView = null
+        if (!isChangingConfigurations && ThemeTransitionSnapshot.isThemeTransition) {
+            ThemeTransitionSnapshot.cancelTransition()
+        }
         oldSnapshotToRecycle?.recycle()
         restoredSnapshotToRecycle?.recycle()
         oldSnapshotToRecycle = null
@@ -111,7 +119,7 @@ class ThemeTransitionActivity : Activity() {
             return
         }
 
-        oldFrame.postDelayed({
+        mainHandler.postDelayed({
             waitForRestoredSettings(oldFrame, restoredFrame, attemptsRemaining - 1)
         }, RESTORED_DIALOG_POLL_INTERVAL_MS)
     }
@@ -127,7 +135,7 @@ class ThemeTransitionActivity : Activity() {
                 ThemeTransitionSnapshot.clearTransition()
                 oldSnapshotToRecycle = snapshot
                 restoredSnapshotToRecycle = restoredSnapshot
-                oldFrame.postDelayed({ finishWithoutAnimation() }, LIVE_DIM_SETTLE_DELAY_MS)
+                mainHandler.postDelayed({ finishWithoutAnimation() }, LIVE_DIM_SETTLE_DELAY_MS)
             }
             .start()
     }

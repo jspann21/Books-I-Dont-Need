@@ -74,6 +74,16 @@ object ThemeTransitionSnapshot {
     fun clearTransition() {
         isThemeTransition = false
         restoredDialogReady = false
+        clearCachedDialogLayer()
+    }
+
+    /** Releases snapshots when a transition cannot finish or is abandoned. */
+    fun cancelTransition() {
+        snapshot?.recycle()
+        restoredSnapshot?.recycle()
+        snapshot = null
+        restoredSnapshot = null
+        clearTransition()
     }
 
     fun clearCachedDialogLayer() {
@@ -280,7 +290,10 @@ object ThemeTransitionSnapshot {
         isThemeTransition = true
         restoredDialogReady = false
         runCatching { ThemeTransitionActivity.start(activity, mode) }
-            .onFailure { ThemePreferences.applyTheme(mode) }
+            .onFailure {
+                cancelTransition()
+                ThemePreferences.applyTheme(mode)
+            }
     }
 
     private fun drawDialogLayer(
