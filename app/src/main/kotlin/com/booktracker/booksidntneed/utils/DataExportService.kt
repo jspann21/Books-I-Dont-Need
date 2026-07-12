@@ -9,6 +9,7 @@ import com.booktracker.booksidntneed.model.BookWithStores
 import com.booktracker.booksidntneed.model.Category
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.io.Writer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -25,11 +26,10 @@ class DataExportService(private val context: Context) {
     /**
      * Export all book data to CSV format
      */
-    fun exportToCSV(booksWithStores: List<BookWithStores>): String {
+    fun exportToCSV(booksWithStores: List<BookWithStores>, writer: Writer) {
         Log.d("BookTracker", "DataExportService: Starting CSV export for ${booksWithStores.size} books")
-        
-        val csvBuilder = StringBuilder()
-        csvBuilder.append(CSV_HEADER).append("\n")
+
+        writer.append(CSV_HEADER).append('\n')
         
         val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.US)
         
@@ -40,20 +40,19 @@ class DataExportService(private val context: Context) {
             if (bookWithStores.stores.isEmpty()) {
                 // Book with no stores - add a single row
                 val bookRow = buildBookRow(book, null, dateFormat)
-                csvBuilder.append(bookRow).append("\n")
+                writer.append(bookRow).append('\n')
                 totalRows++
             } else {
                 // Book with stores - add a row for each store
                 bookWithStores.stores.forEach { store ->
                     val bookRow = buildBookRow(book, store, dateFormat)
-                    csvBuilder.append(bookRow).append("\n")
+                    writer.append(bookRow).append('\n')
                     totalRows++
                 }
             }
         }
-        
+
         Log.d("BookTracker", "DataExportService: CSV export completed. Total rows: $totalRows")
-        return csvBuilder.toString()
     }
     
     private fun buildBookRow(book: Book, store: BookStore?, dateFormat: SimpleDateFormat): String {

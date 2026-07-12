@@ -42,6 +42,7 @@ import androidx.work.WorkManager
 import com.booktracker.booksidntneed.BookTrackerApplication
 import com.booktracker.booksidntneed.R
 import com.booktracker.booksidntneed.databinding.ActivityMainBinding
+import com.booktracker.booksidntneed.model.BookWithStores
 import com.booktracker.booksidntneed.repository.BookRepository
 import com.booktracker.booksidntneed.ui.dialog.CategoryOptionsDialogFragment
 import com.booktracker.booksidntneed.ui.dialog.CategorySelectionDialogFragment
@@ -866,18 +867,9 @@ class MainActivity : AppCompatActivity(),
                     return@launch
                 }
                 
-                // Generate CSV
-                Log.d("BookTracker", "MainActivity: Generating CSV data")
-                val csvData = withContext(Dispatchers.IO) {
-                    dataExportService.exportToCSV(booksWithStores)
-                }
-                
-                Log.d("BookTracker", "MainActivity: CSV generation completed, size: ${csvData.length} characters")
-                
-                // Create temporary file
-                Log.d("BookTracker", "MainActivity: Creating temporary CSV file")
+                Log.d("BookTracker", "MainActivity: Writing CSV data to temporary file")
                 val tempFile = withContext(Dispatchers.IO) {
-                    createTempCsvFile(csvData)
+                    createTempCsvFile(booksWithStores)
                 }
                 
                 Log.d("BookTracker", "MainActivity: Temporary file created: ${tempFile.absolutePath}")
@@ -1050,15 +1042,13 @@ class MainActivity : AppCompatActivity(),
         return name
     }
     
-    private fun createTempCsvFile(csvData: String): File {
-        Log.d("BookTracker", "MainActivity: Creating temporary CSV file with ${csvData.length} characters")
-        
+    private fun createTempCsvFile(booksWithStores: List<BookWithStores>): File {
         // Create file in the app's private files directory for better sharing compatibility
         val tempFile = File(filesDir, "books_export_${System.currentTimeMillis()}.csv")
         
         try {
             FileWriter(tempFile).use { writer ->
-                writer.write(csvData)
+                dataExportService.exportToCSV(booksWithStores, writer)
             }
             Log.d("BookTracker", "MainActivity: Temporary file created successfully: ${tempFile.absolutePath} (${tempFile.length()} bytes)")
         } catch (e: Exception) {
@@ -1066,7 +1056,7 @@ class MainActivity : AppCompatActivity(),
             // Fallback to cache directory if files directory fails
             val fallbackFile = File(cacheDir, "books_export_${System.currentTimeMillis()}.csv")
             FileWriter(fallbackFile).use { writer ->
-                writer.write(csvData)
+                dataExportService.exportToCSV(booksWithStores, writer)
             }
             Log.d("BookTracker", "MainActivity: Fallback file created in cache: ${fallbackFile.absolutePath}")
             return fallbackFile
