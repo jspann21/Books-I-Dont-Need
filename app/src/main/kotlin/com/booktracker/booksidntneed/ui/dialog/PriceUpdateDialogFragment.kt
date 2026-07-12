@@ -152,4 +152,10 @@ class PriceUpdateDialogFragment : DialogFragment() {
         super.onStart()
         DialogStyling.apply(dialog)
     }
+
+    override fun onDestroyView() {
+        view?.findViewById<RecyclerView>(R.id.storeProgressRecyclerView)?.adapter = null
+        storeProgressAdapter = null
+        super.onDestroyView()
+    }
 } 
