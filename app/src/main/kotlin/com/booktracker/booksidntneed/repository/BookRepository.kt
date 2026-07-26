@@ -15,6 +15,7 @@ import com.booktracker.booksidntneed.network.ScrapingProgressCallback
 import com.booktracker.booksidntneed.network.WebScrapingService
 import com.booktracker.booksidntneed.utils.ErrorReporter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import java.io.Serializable
 import java.util.Date
@@ -158,6 +159,8 @@ class BookRepository(
                         BookAddResult.Error(result.message)
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 ErrorReporter.recordException(
                     e,
@@ -652,6 +655,8 @@ class BookRepository(
                     }
                 }
                 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 ErrorReporter.recordException(
                     e,

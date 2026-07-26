@@ -4,6 +4,7 @@ import android.util.Log
 import android.os.SystemClock
 import com.booktracker.booksidntneed.utils.ErrorReporter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.jsoup.HttpStatusException
@@ -71,6 +72,8 @@ class WebScrapingService {
                     document = fetchDocumentWithRetry(retryUrl, strategy, null)
                     finalUrl = retryUrl
                     retriedWithCanonicalUrl = true
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.w("BookTracker", "WebScraping: Post-fetch retry failed: ${e.message}")
                 }
@@ -149,14 +152,21 @@ class WebScrapingService {
         } catch (e: HttpStatusException) {
             val host = runCatching { URL(url).host }.getOrDefault("unknown host")
             Log.w("BookTracker", "WebScraping: HTTP error fetching document from $host. Status=${e.statusCode}, URL=${e.url}", e)
-            val errorMessage = when (e.statusCode) {
-                404 -> "The page was not found (404). The book may no longer be available at this URL."
-                403 -> "Access was denied (403). This may be due to bot detection. Please try again later."
-                503 -> "The website is temporarily unavailable (503). Please try again later."
+            val errorMessage = when {
+                e.statusCode == 404 && strategy is EbayRequestStrategy ->
+                    "This eBay listing has ended, was removed, or is no longer available (404)."
+                e.statusCode == 404 ->
+                    "The page was not found (404). The book may no longer be available at this URL."
+                e.statusCode == 403 ->
+                    "Access was denied (403). This may be due to bot detection. Please try again later."
+                e.statusCode == 503 ->
+                    "The website is temporarily unavailable (503). Please try again later."
                 else -> "Received an unexpected HTTP error: ${e.statusCode}."
             }
             progressCallback?.onError("Fetching Document", errorMessage)
             ScrapingResult.Error(errorMessage)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("BookTracker", "WebScraping: Unexpected error", e)
             ErrorReporter.recordException(
@@ -264,10 +274,20 @@ class WebScrapingService {
                 val document = fetchDocument(canonicalUrl, attempt, strategy)
                 progressCallback?.onTaskCompleted("Fetching Document")
                 return document
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: SocketTimeoutException) {
                 Log.w("BookTracker", "WebScraping: Timeout on attempt $attempt: ${e.message}")
                 lastException = e
                 if (!retryPolicy.shouldRetry(e, attempt)) {
+                    throw e
+                }
+            } catch (e: HttpStatusException) {
+                Log.w("BookTracker", "WebScraping: HTTP ${e.statusCode} on attempt $attempt: ${e.message}")
+                lastException = e
+                // Missing product/listing pages are not transient. Retrying can
+                // replace this useful response with a later bot challenge.
+                if (e.statusCode == 404 || !retryPolicy.shouldRetry(e, attempt)) {
                     throw e
                 }
             } catch (e: Exception) {
@@ -309,6 +329,8 @@ class WebScrapingService {
                 strategy.establishSession(session)
                 sessionEstablishedAt[key] = SystemClock.elapsedRealtime()
                 progressCallback?.onTaskProgress("Establishing Session", 100)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w("BookTracker", "WebScraping: Failed to establish ${strategy.storeName} session, continuing anyway: ${e.message}")
             } finally {

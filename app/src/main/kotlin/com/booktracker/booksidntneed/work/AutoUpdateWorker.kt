@@ -22,6 +22,7 @@ import com.booktracker.booksidntneed.utils.ErrorReporter
 import com.booktracker.booksidntneed.utils.FailedUpdateEntry
 import com.booktracker.booksidntneed.utils.PriceChangeEntry
 import com.booktracker.booksidntneed.utils.UpdateSummary
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -95,11 +96,10 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             val requestLimiter = ResponsiblePriceUpdateLimiter()
 
             val initialProgressText = "Starting price updates... (0 of $totalStores)"
-            if (inputData.getBoolean(KEY_ALLOW_FOREGROUND, false)) {
-                setForegroundIfAllowed(createForegroundInfo(initialProgressText, totalProgress = totalStores))
-            } else {
-                showProgressNotification(initialProgressText, 0, totalStores)
-            }
+            // A full-library update can legitimately take longer than WorkManager's
+            // normal background execution window. Promote scheduled and manual runs
+            // alike so Android does not stop a daily update partway through.
+            setForegroundIfAllowed(createForegroundInfo(initialProgressText, totalProgress = totalStores))
             setProgressData(0, totalStores, initialProgressText)
 
             suspend fun processTarget(target: AutoUpdateStoreTarget) {
@@ -160,6 +160,10 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                             )
                         }
                     }
+                } catch (e: CancellationException) {
+                    // WorkManager uses coroutine cancellation when a request is
+                    // replaced or stopped. Never turn that into a store failure.
+                    throw e
                 } catch (e: Exception) {
                     failedUpdates.incrementAndGet()
                     failureEntries.add(
@@ -228,6 +232,9 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 "AutoUpdateWorker: Completed with ${summary.changed} changes, ${summary.failed} failures, and ${summary.skipped} skipped"
             )
             Result.success()
+        } catch (e: CancellationException) {
+            Log.d(TAG, "AutoUpdateWorker: Stopped")
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "AutoUpdateWorker: Failed", e)
             ErrorReporter.recordException(
@@ -323,6 +330,8 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
     private suspend fun setForegroundIfAllowed(foregroundInfo: ForegroundInfo) {
         try {
             setForeground(foregroundInfo)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: IllegalStateException) {
             Log.w(TAG, "Unable to promote auto update to foreground work; continuing as regular work.", e)
             ErrorReporter.recordException(
@@ -353,7 +362,6 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
         const val KEY_PROGRESS_CURRENT = "progress_current"
         const val KEY_PROGRESS_TOTAL = "progress_total"
         const val KEY_PROGRESS_TEXT = "progress_text"
-        const val KEY_ALLOW_FOREGROUND = "allow_foreground"
         const val ACTION_SUMMARY_READY = "com.booktracker.booksidntneed.UPDATE_SUMMARY_READY"
     }
 }

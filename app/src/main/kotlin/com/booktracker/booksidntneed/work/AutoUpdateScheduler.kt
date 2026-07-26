@@ -6,13 +6,15 @@ import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
+import androidx.work.WorkInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import androidx.work.workDataOf
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 import androidx.work.NetworkType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 object AutoUpdateScheduler {
     const val UNIQUE_WORK_NAME = "daily_price_update"
@@ -26,7 +28,7 @@ object AutoUpdateScheduler {
     /**
      * Schedule a daily worker at the specified local time (minutes since midnight).
      */
-    fun scheduleDaily(
+    suspend fun scheduleDaily(
         context: Context,
         minutesSinceMidnight: Int,
         policy: ExistingPeriodicWorkPolicy = ExistingPeriodicWorkPolicy.KEEP
@@ -52,12 +54,21 @@ object AutoUpdateScheduler {
         val constraints = automaticUpdateConstraints()
 
         val wm = WorkManager.getInstance(context)
+        val oneTimeIsRunning = if (policy == ExistingPeriodicWorkPolicy.KEEP) {
+            false
+        } else {
+            withContext(Dispatchers.IO) {
+                wm.getWorkInfosForUniqueWork(UNIQUE_ONE_TIME_NAME)
+                    .get()
+                    .any { it.state == WorkInfo.State.RUNNING }
+            }
+        }
 
         // If the next run is soon (e.g., within 20 minutes), enqueue a one-time request for today
         // and start the periodic schedule from tomorrow to avoid double-runs.
         val thresholdMs = TimeUnit.MINUTES.toMillis(IMMEDIATE_THRESHOLD_MINUTES)
         val enqueueImmediate = initialDelayMs in 1..thresholdMs
-        if (enqueueImmediate) {
+        if (enqueueImmediate && !oneTimeIsRunning) {
             Log.d("AutoUpdateScheduler", "Enqueuing one-time update in ${initialDelayMs}ms for today's run")
             val oneTime = OneTimeWorkRequestBuilder<AutoUpdateWorker>()
                 .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
@@ -66,14 +77,22 @@ object AutoUpdateScheduler {
                 .build()
             wm.enqueueUniqueWork(
                 UNIQUE_ONE_TIME_NAME,
-                ExistingWorkPolicy.REPLACE,
+                if (policy == ExistingPeriodicWorkPolicy.KEEP) {
+                    ExistingWorkPolicy.KEEP
+                } else {
+                    ExistingWorkPolicy.REPLACE
+                },
                 oneTime
             )
-        } else if (policy == ExistingPeriodicWorkPolicy.REPLACE) {
+        } else if (enqueueImmediate) {
+            Log.d("AutoUpdateScheduler", "Keeping the in-progress same-day update")
+        } else if (policy != ExistingPeriodicWorkPolicy.KEEP && !oneTimeIsRunning) {
             // Only an explicit schedule replacement should remove a pending same-day run.
             // scheduleDaily(KEEP) is also called during app startup; cancelling here used to
             // erase a run that WorkManager had delayed slightly past its requested time.
             wm.cancelUniqueWork(UNIQUE_ONE_TIME_NAME)
+        } else if (oneTimeIsRunning) {
+            Log.d("AutoUpdateScheduler", "Allowing the in-progress same-day update to finish")
         }
 
         // Use a small flex so execution happens close to the chosen clock time
@@ -102,7 +121,6 @@ object AutoUpdateScheduler {
 
     fun enqueueManual(context: Context) {
         val request = OneTimeWorkRequestBuilder<AutoUpdateWorker>()
-            .setInputData(workDataOf(AutoUpdateWorker.KEY_ALLOW_FOREGROUND to true))
             .setConstraints(manualUpdateConstraints())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, RETRY_BACKOFF_MINUTES, TimeUnit.MINUTES)
             .build()

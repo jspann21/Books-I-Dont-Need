@@ -27,6 +27,8 @@ import android.content.pm.PackageManager
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -109,7 +111,7 @@ class SettingsDialogFragment : DialogFragment() {
             updatePriceAndTimeCardState(enabled, timeCard, timeText)
 
             // Register AFTER setting the initial value so that the programmatic
-            // setChecked above does not trigger a redundant scheduleDaily(REPLACE).
+            // setChecked above does not trigger a redundant schedule update.
             autoUpdateSwitch.setOnCheckedChangeListener { _, isChecked ->
                 viewLifecycleOwner.lifecycleScope.launch {
                     AutoUpdatePreferences.setEnabled(requireContext(), isChecked)
@@ -120,7 +122,7 @@ class SettingsDialogFragment : DialogFragment() {
                         AutoUpdateScheduler.scheduleDaily(
                             requireContext(),
                             mins,
-                            androidx.work.ExistingPeriodicWorkPolicy.REPLACE
+                            androidx.work.ExistingPeriodicWorkPolicy.UPDATE
                         )
                     } else {
                         AutoUpdateScheduler.cancel(requireContext())
@@ -146,11 +148,11 @@ class SettingsDialogFragment : DialogFragment() {
                         AutoUpdatePreferences.setTimeMinutes(requireContext(), newMinutes)
                         timeText.text = formatMinutes(newMinutes)
                         if (AutoUpdatePreferences.isEnabled(requireContext()).first()) {
-                            // Replace existing schedule when the user changes the time
+                            // Update the schedule without cancelling a run in progress.
                             AutoUpdateScheduler.scheduleDaily(
                                 requireContext(),
                                 newMinutes,
-                                androidx.work.ExistingPeriodicWorkPolicy.REPLACE
+                                androidx.work.ExistingPeriodicWorkPolicy.UPDATE
                             )
                         }
                     }
@@ -180,15 +182,25 @@ class SettingsDialogFragment : DialogFragment() {
     private fun enqueueManualUpdate() {
         viewLifecycleOwner.lifecycleScope.launch {
             val workManager = androidx.work.WorkManager.getInstance(requireContext())
-            
-            // Check if manual update is already running
-            val workInfos = workManager.getWorkInfosForUniqueWork(AutoUpdateScheduler.UNIQUE_MANUAL_WORK_NAME).get()
-            val isRunning = workInfos.any { 
-                it.state == androidx.work.WorkInfo.State.RUNNING || it.state == androidx.work.WorkInfo.State.ENQUEUED 
+
+            val (manualWork, automaticWork) = withContext(Dispatchers.IO) {
+                val manual = workManager
+                    .getWorkInfosForUniqueWork(AutoUpdateScheduler.UNIQUE_MANUAL_WORK_NAME)
+                    .get()
+                val automatic = listOf(
+                    AutoUpdateScheduler.UNIQUE_WORK_NAME,
+                    AutoUpdateScheduler.UNIQUE_ONE_TIME_NAME
+                ).flatMap { uniqueWorkName ->
+                    workManager.getWorkInfosForUniqueWork(uniqueWorkName).get()
+                }
+                manual to automatic
             }
-            
-            if (isRunning) {
-                // Show message that update is already running
+
+            val updateIsActive =
+                manualWork.any { !it.state.isFinished } ||
+                    automaticWork.any { it.state == androidx.work.WorkInfo.State.RUNNING }
+
+            if (updateIsActive) {
                 try {
                     com.google.android.material.snackbar.Snackbar.make(
                         requireView(),
@@ -198,7 +210,15 @@ class SettingsDialogFragment : DialogFragment() {
                 } catch (_: Exception) { }
                 return@launch
             }
-            
+
+            // Running now covers today's update, so remove a same-day request that
+            // is still waiting rather than scraping the entire library twice.
+            withContext(Dispatchers.IO) {
+                workManager
+                    .cancelUniqueWork(AutoUpdateScheduler.UNIQUE_ONE_TIME_NAME)
+                    .result
+                    .get()
+            }
             requestNotificationPermissionIfNeeded()
             AutoUpdateScheduler.enqueueManual(requireContext())
 

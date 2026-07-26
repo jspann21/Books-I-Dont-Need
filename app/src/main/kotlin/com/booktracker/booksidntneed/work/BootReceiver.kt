@@ -29,7 +29,7 @@ class BootReceiver : BroadcastReceiver() {
                         val enabled = AutoUpdatePreferences.isEnabled(appContext).first()
                         if (enabled) {
                             val minutes = AutoUpdatePreferences.timeMinutes(appContext).first()
-                            AutoUpdateScheduler.scheduleDaily(appContext, minutes, androidx.work.ExistingPeriodicWorkPolicy.REPLACE)
+                            AutoUpdateScheduler.scheduleDaily(appContext, minutes, androidx.work.ExistingPeriodicWorkPolicy.UPDATE)
                         } else {
                             AutoUpdateScheduler.cancel(appContext)
                         }
