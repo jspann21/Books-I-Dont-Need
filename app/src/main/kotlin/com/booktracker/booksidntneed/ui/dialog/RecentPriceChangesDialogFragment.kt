@@ -9,6 +9,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.DialogFragment
 import com.booktracker.booksidntneed.R
 import com.booktracker.booksidntneed.utils.AutoUpdatePreferences
@@ -171,6 +172,18 @@ class RecentPriceChangesDialogFragment : DialogFragment() {
             }
         }
 
+        // Keep long update results manageable without moving the title or action button
+        // off-screen. Short lists retain their natural height.
+        val changesScrollView = view.findViewById<NestedScrollView>(R.id.changesScrollView)
+        changesScrollView.post {
+            val maxListHeight = (resources.displayMetrics.heightPixels * MAX_LIST_HEIGHT_FRACTION).toInt()
+            if (changesScrollView.height > maxListHeight) {
+                changesScrollView.layoutParams = changesScrollView.layoutParams.apply {
+                    height = maxListHeight
+                }
+            }
+        }
+
         view.findViewById<Button>(R.id.dismissButton).setOnClickListener {
             // Clear stored recent changes on dismiss
             viewLifecycleOwner.lifecycleScope.launch { AutoUpdatePreferences.setRecentChangesJson(requireContext(), null) }
@@ -209,6 +222,8 @@ class RecentPriceChangesDialogFragment : DialogFragment() {
 
     companion object {
         private const val ARG_JSON = "json"
+        private const val MAX_LIST_HEIGHT_FRACTION = 0.55f
+
         fun newInstance(json: String): RecentPriceChangesDialogFragment {
             val f = RecentPriceChangesDialogFragment()
             f.arguments = Bundle().apply { putString(ARG_JSON, json) }
