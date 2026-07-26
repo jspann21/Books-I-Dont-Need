@@ -6,7 +6,7 @@ on:
       tag:
         description: Release tag to create or update
         required: true
-        default: v1.0.5
+        default: v1.0.6
   push:
     tags:
       - "v*"
@@ -20,8 +20,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      VERSION_NAME: 1.0.5
-      APK_NAME: books-i-dont-need-1.0.5.apk
+      VERSION_NAME: 1.0.6
+      APK_NAME: books-i-dont-need-1.0.6.apk
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
       SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY }}
       FIREBASE_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON }}
@@ -96,5 +96,5 @@ jobs:
             gh release create "$RELEASE_TAG" "$APK_NAME" \
               --target "$GITHUB_SHA" \
               --title "Books I Don't Need $VERSION_NAME" \
-              --notes "Release $VERSION_NAME"
+              --notes-file docs/release-notes.md
           fi

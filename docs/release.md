@@ -2,11 +2,11 @@
 
 GitHub builds the release APK with `.github/workflows/android-release.yml`.
 
-The workflow runs when a `v*` tag is pushed, or manually from the Actions tab. For version `1.0.5`, push:
+The workflow runs when a `v*` tag is pushed, or manually from the Actions tab. For version `1.0.6`, push:
 
 ```sh
-git tag v1.0.5
-git push origin v1.0.5
+git tag v1.0.6
+git push origin v1.0.6
 ```
 
 To publish an installable signed APK, add these repository secrets in GitHub:
@@ -23,3 +23,5 @@ Generate `ANDROID_SIGNING_KEY` from PowerShell with:
 ```
 
 If the signing secrets are missing, GitHub still builds and attaches an unsigned release APK.
+
+The release notes are maintained in `docs/release-notes.md` and are published with the GitHub release.
