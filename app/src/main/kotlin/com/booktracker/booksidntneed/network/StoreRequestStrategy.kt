@@ -4,6 +4,7 @@ import android.util.Log
 import kotlinx.coroutines.delay
 import org.jsoup.Connection
 import org.jsoup.nodes.Document
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.URL
 import java.util.Locale
@@ -24,6 +25,7 @@ data class RetryPolicy(
             return false
         }
         return exception is SocketTimeoutException ||
+            exception is SocketException ||
             retryAllExceptions ||
             (retryHttp403 && exception.message?.contains("403") == true)
     }

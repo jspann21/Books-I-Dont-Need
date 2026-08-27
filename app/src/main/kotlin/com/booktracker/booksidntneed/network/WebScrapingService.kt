@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import org.jsoup.HttpStatusException
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.UnknownHostException
@@ -137,6 +138,11 @@ class WebScrapingService {
             }
             progressCallback?.onError("Fetching Document", errorMessage)
             ScrapingResult.Error(errorMessage)
+        } catch (e: SocketException) {
+            val host = hostFrom(url)
+            Log.w("BookTracker", "WebScraping: Connection was interrupted while fetching from $host. Message: ${e.message}")
+            progressCallback?.onError("Fetching Document", "Network connection interrupted. Please try again.")
+            ScrapingResult.Error("Network connection interrupted. Please try again.")
         } catch (e: SSLException) {
             Log.e("BookTracker", "WebScraping: SSL error", e)
             ErrorReporter.recordException(
