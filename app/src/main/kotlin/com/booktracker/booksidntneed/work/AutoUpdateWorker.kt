@@ -334,11 +334,19 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
             throw e
         } catch (e: IllegalStateException) {
             Log.w(TAG, "Unable to promote auto update to foreground work; continuing as regular work.", e)
-            ErrorReporter.recordException(
-                e,
-                "Unable to promote auto update to foreground work",
-                mapOf("source" to "auto_update_foreground")
-            )
+            if (isForegroundServiceStartNotAllowed(e)) {
+                // Android 12+ can reject WorkManager's foreground service when
+                // scheduled work starts while the app is in the background.
+                // Continuing under WorkManager's regular execution window is
+                // an expected fallback, not a Crashlytics-worthy app error.
+                Log.w(TAG, "Foreground execution is not allowed; continuing as regular work.")
+            } else {
+                ErrorReporter.recordException(
+                    e,
+                    "Unable to promote auto update to foreground work",
+                    mapOf("source" to "auto_update_foreground")
+                )
+            }
         } catch (e: SecurityException) {
             Log.w(TAG, "Missing permission for foreground auto update; continuing as regular work.", e)
             ErrorReporter.recordException(
@@ -347,6 +355,11 @@ class AutoUpdateWorker(appContext: Context, params: WorkerParameters) : Coroutin
                 mapOf("source" to "auto_update_foreground")
             )
         }
+    }
+
+    private fun isForegroundServiceStartNotAllowed(error: IllegalStateException): Boolean {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            error.javaClass.name == "android.app.ForegroundServiceStartNotAllowedException"
     }
 
     private fun hostFrom(url: String): String {
