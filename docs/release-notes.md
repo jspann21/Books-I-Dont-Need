@@ -1,7 +1,8 @@
-# Books I Don't Need 1.0.6
+# Books I Don't Need 1.0.7
 
-## What's changed
+## Changelog
 
-- Fixed scheduled price updates so books are processed reliably and results are reported completely.
-- Made long Recent Price Changes lists scrollable, keeping the dialog usable when many prices change.
-- Updated the Android Gradle Plugin and Gradle settings for faster, more reliable builds.
+- Fixed eBay imports and price updates by retaining the session cookies eBay issues during its homepage bootstrap response.
+- Stopped eBay requests from continuing with an empty session when session establishment genuinely fails.
+- Added retries and clearer user-facing handling for interrupted retailer connections.
+- Prevented expected Android background foreground-service restrictions from being reported as application errors.

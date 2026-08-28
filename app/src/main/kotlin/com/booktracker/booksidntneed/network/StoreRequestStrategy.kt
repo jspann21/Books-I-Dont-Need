@@ -62,6 +62,9 @@ class CookieSession {
 interface StoreRequestStrategy {
     val storeName: String
 
+    val requiresSession: Boolean
+        get() = false
+
     fun canHandle(url: String): Boolean
 
     fun canonicalizeUrl(url: String): String = RequestStrategyUtils.ensureHttps(url)

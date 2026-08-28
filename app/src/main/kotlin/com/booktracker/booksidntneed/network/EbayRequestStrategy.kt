@@ -8,6 +8,7 @@ import java.util.Locale
 
 class EbayRequestStrategy : StoreRequestStrategy {
     override val storeName: String = "eBay"
+    override val requiresSession: Boolean = true
 
     override fun canHandle(url: String): Boolean {
         val host = RequestStrategyUtils.extractHost(url) ?: return false
@@ -70,13 +71,32 @@ class EbayRequestStrategy : StoreRequestStrategy {
             .header("Upgrade-Insecure-Requests", "1")
 
         val homepageDoc = homepageConnection.get()
-        blockedPageError(homepageDoc)?.let { error -> throw IllegalStateException(error) }
-        if (homepageConnection.response().statusCode() !in 200..299) {
-            throw IllegalStateException("eBay session setup returned HTTP ${homepageConnection.response().statusCode()}")
-        }
-        Log.d("BookTracker", "EbayRequestStrategy: Successfully visited eBay homepage (title='${homepageDoc.title()}')")
+        val response = homepageConnection.response()
+        val responseCookies = response.cookies()
 
-        session.putAll(homepageConnection.response().cookies(), prefix = SESSION_COOKIE_PREFIX)
+        // eBay can answer the anonymous homepage bootstrap with HTTP 403 while
+        // still issuing the cookies required for a subsequent item request. The
+        // listing succeeds when those cookies are retained. Previously we threw
+        // before saving them, so the caller continued with an empty session and
+        // every item request was rejected with another 403.
+        session.putAll(responseCookies, prefix = SESSION_COOKIE_PREFIX)
+
+        if (response.statusCode() in 200..299) {
+            blockedPageError(homepageDoc)?.let { error -> throw IllegalStateException(error) }
+            Log.d(
+                "BookTracker",
+                "EbayRequestStrategy: Successfully visited eBay homepage (title='${homepageDoc.title()}')"
+            )
+        } else if (response.statusCode() == 403 && responseCookies.isNotEmpty()) {
+            Log.d(
+                "BookTracker",
+                "EbayRequestStrategy: eBay homepage bootstrap returned HTTP 403 and issued ${responseCookies.size} session cookies"
+            )
+        } else {
+            throw IllegalStateException(
+                "eBay session setup returned HTTP ${response.statusCode()} without issuing session cookies"
+            )
+        }
     }
 
     override fun configureRequest(connection: Connection, attempt: Int, session: CookieSession) {

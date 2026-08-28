@@ -338,7 +338,11 @@ class WebScrapingService {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w("BookTracker", "WebScraping: Failed to establish ${strategy.storeName} session, continuing anyway: ${e.message}")
+                if (strategy.requiresSession) {
+                    Log.w("BookTracker", "WebScraping: Failed to establish required ${strategy.storeName} session: ${e.message}")
+                    throw e
+                }
+                Log.w("BookTracker", "WebScraping: Failed to establish optional ${strategy.storeName} session, continuing without it: ${e.message}")
             } finally {
                 progressCallback?.onTaskCompleted("Establishing Session")
             }
